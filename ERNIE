@@ -1,0 +1,93 @@
+
+
+// This #include statement was automatically added by the Particle IDE.
+#include <Adafruit_AM2315.h>
+
+//WidgetLCD lcd(V1);
+Adafruit_AM2315 am2315;
+
+
+
+double think_temperature;
+double think_humidity;
+int thetimer;
+int thetimer2;
+int toggle = 1;
+int getDarkSky = 0;
+float responseValue = 0.0;
+
+
+void setup()
+{
+    Particle.variable("temperature!", think_temperature);
+    Particle.variable("humidity!", think_humidity);
+    //Particle.subscribe("reqOff", myHandler, MY_DEVICES); 
+    //Particle.subscribe("hook-response/darksky", getTemp, MY_DEVICES);
+    
+    am2315.begin();
+}  
+
+ 
+ 
+void loop() 
+{   
+
+
+    if (getDarkSky < millis())
+        {
+
+            String data = String(10);
+            Particle.publish("darkskyTemperature", data,2, PRIVATE);
+            getDarkSky = (millis() + 180003); // was 172800 // was 86400
+        
+        }
+        
+        
+    
+    if (toggle == 3)
+        {
+            thetimer = millis() + 10004;
+            toggle = 2;
+            //Particle.publish("afttog 1", String(toggle));
+        }
+    
+    if (toggle == 1)
+        {
+            thetimer2 = millis() + 10001;
+            toggle = 6;
+            //Particle.publish("afttog 2", String(toggle));
+        }
+        
+    if ((thetimer2 < millis()) && toggle == 6)    
+        {
+            think_temperature = am2315.readTemperature() - 2;
+            Particle.publish("temperature!", String(think_temperature, 2), PRIVATE);
+            toggle = 3;
+        }
+        
+    if ((thetimer < millis()) && toggle == 2)    
+        {
+            think_humidity = am2315.readHumidity();
+            Particle.publish("humidity!", String(think_humidity, 2), PRIVATE);
+            toggle = 1;
+        }
+    
+
+}
+
+
+void getTemp(const char *event, const char *data) //gets darksky external temperature
+    {
+        responseValue = atof(data);
+    }
+
+/*
+void myHandler(const char *event, const char *data)
+    {
+        if (strcmp(data,"off")==0)    
+            {
+                Particle.publish("boostOff", "off", 60, PRIVATE);
+            }
+    }
+    
+*/
