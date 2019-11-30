@@ -1,0 +1,638 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <blynk.h>
+
+// This #include statement was automatically added by the Particle IDE.
+#include <blynk.h>
+
+
+// This #include statement was automatically added by the Particle IDE.
+//#include <DailyTimerSpark.h>
+
+// This #include statement was automatically added by the Particle IDE.
+//#include "lib1.h"
+
+//BERT as of 1/3/2018         major update – surfaced temperature thresholds https://community.particle.io/t/dailytimerspark-library-added/22911/11
+//BERT as of 17/1/2019 changed D0 to D1 as relay D0 not powering pump
+//BERT as of 09/09/2019 changed D1 to D2 for Heating
+//BERT D1 to become Domestic Hot Water
+//BERT D3 to power boiler separately to allow pump over run
+
+// BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT 
+
+WidgetLCD lcd(V0);
+//WidgetLCD lcd2(V6);
+//WidgetTerminal terminal(V27);
+
+
+char auth[] = "VDVVDVDVDVDVDVDVDVDVDJJJSH";
+
+//int constantOn = 0;
+//int hotWaterConst = 0;
+
+
+//int shotCH = 0;
+//int shotHW = 0;
+
+float boilerT;
+int shot = 1;
+int shotBoiler = 0;
+
+int heatVariable = 0;
+int hwVariable = 0;
+
+int MODheatVariable = 0;
+int MODhwVariable = 0;
+
+//int pulseTimeOn = 0;
+//int pulseTimeOff = 0;
+//int oneHour = 0;
+unsigned int heatTime = 0;
+//unsigned int tTime = 0;
+int boilerDelay; //ch
+int boilerDelay2; //hw
+int boilerDelayCHoff;
+int boilerDelayHWoff;
+int boilerDelayCHoff2;
+int boilerDelayHWoff2;
+//int boilerDelayBLRoff = 0;
+
+//int HWupper;
+//int HWlower;
+
+int pumpPumpAdd = 10000;
+
+int chConstant = 0;
+int shutdownTimer = 0;
+
+int boilerDelaySlide2; //  1 minutes
+
+
+
+float pumpNoNeed = 0; // ºc threshold at which stops V32
+
+int w1countdownStop;
+int w1countdownStart;
+int w2countdownStop;
+int w2countdownStart;
+int w3countdownStop;
+int w3countdownStart;
+
+int hwcountdownStop;
+int hwcountdownStart;
+
+int hwON = 0;
+int chON = 0;
+
+
+
+//////////////////////GENERAL////////////////////////////////
+
+int w1OnH = 6;
+int w1OnM;
+int w1OfH = 9;
+int w1OfM;
+
+int w2OnH = 15; //was 15:00
+int w2OnM;
+int w2OfH = 17;
+int w2OfM = 30; 
+
+int w3OnH = 18; 
+int w3OnM; 
+int w3OfH = 21; 
+int w3OfM;  
+
+
+int hwOnH = 7;
+int hwOnM;
+int hwOfH = 19; // was 19
+int hwOfM;
+
+////////////////////////////////////////////////////////
+float HWupper = 58; 
+float HWlower = 48; 
+//char responseString[64];
+double responseValue;
+//double responseValue6;
+float realTemp;
+//float delta;
+
+
+
+
+
+void setup()
+    {
+        
+        
+        Particle.subscribe("hook-response/darksky", getTemp, MY_DEVICES);
+        
+        Blynk.begin(auth);
+        Blynk.syncAll();
+        
+        
+        Blynk.virtualWrite(V27, 0);
+        Blynk.virtualWrite(V5, 0);
+        Blynk.virtualWrite(V12, 0);
+        
+        
+            
+        pinMode(D1,OUTPUT); //was D1 13-11-19
+        pinMode(D2,OUTPUT); 
+        pinMode(D3,OUTPUT); //boiler fired independently of pump and after a delay
+        
+        //pulseOn = 0;
+        Particle.subscribe("temperature!", myHandler2, MY_DEVICES); 
+        Particle.subscribe("humidity!", myHandler3, MY_DEVICES); 
+        Particle.subscribe("tempC", myHandler4, MY_DEVICES); //BOILER TEMP
+        
+        Blynk.virtualWrite(V25, 0);
+        
+        lcd.clear();
+        lcd.print(0, 0, "Hello! ");
+        lcd.print(0, 1, "New Bert");
+        delay(3000);
+        lcd.clear();
+        
+        Time.zone(0);
+
+         
+        EEPROM.get(600, pumpNoNeed);
+        Blynk.virtualWrite(V32, pumpNoNeed);
+        delay(100);
+        
+        EEPROM.get(180, boilerDelaySlide2);
+        Blynk.virtualWrite(V11, boilerDelaySlide2/1000);
+        delay(100);
+        
+       
+        EEPROM.get(10, HWlower);
+        Blynk.virtualWrite(V3, HWlower);
+        EEPROM.get(20, HWupper);
+        Blynk.virtualWrite(V4, HWupper);
+       
+        Blynk.virtualWrite(V9, 0); //HW LED OFF
+        
+        lcd.clear();
+        //lcd2.clear();
+        
+    }
+
+
+
+void loop()
+{
+
+
+Blynk.run();
+
+lcd.print(8, 0, "C");
+lcd.print(9, 0, "H");
+lcd.print(8, 1, String(MODheatVariable));
+lcd.print(9, 1, String(MODhwVariable));
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////  
+
+if (chON == 1)
+    {
+        makeHeat();
+        //Particle.publish("makeHeat", "chON 1", PRIVATE);
+    }   
+if (chON == 0)
+    {
+        heatVariable = 0;
+        //Particle.publish("heatVariable", "chON 0", PRIVATE);
+    }
+    
+    
+    
+if (hwON == 1)
+    {
+        makeHotWater();
+        //Particle.publish("makeHeat", "chON 1", PRIVATE);
+    }   
+if (hwON == 0)
+    {
+        hwVariable = 0;
+        //Particle.publish("heatVariable", "chON 0", PRIVATE);
+    }
+    
+////////////////////////////////////////////////////////////////////////////////////////////////////////////   
+    
+if (boilerT > HWupper)
+    {
+        shotBoiler = 1; //Upper Limit Reached
+    }
+if (boilerT < HWlower)
+    {
+        shotBoiler = 0; //Safe 
+    }
+
+
+/////////////////////////////////////////////////////NEW LOGIC////////////////////////////////////////////////////  CH
+
+if (heatVariable == 0 or chConstant == 0)
+    {
+        if (shotBoiler == 0)
+            {
+                MODheatVariable = 0; //stop boiler, stop ch pump            //////        CH OFF
+            }
+        if (shotBoiler == 1)
+            {
+                MODheatVariable = 3; //stop boiler, RUN CH pump             //////        CH COOL DOWN
+            }
+    }
+
+if (heatVariable == 1 or chConstant == 1)////////////////////////////////
+    {
+        if (shot == 0)
+            {
+                MODheatVariable = 1; //start boiler, start ch pump           //////        CH ON
+            }
+        if (shot == 1)
+            {
+                if (shotBoiler == 0)
+                    {
+                        MODheatVariable = 0; //stop boiler, stop ch pump     //////        CH OFF
+                    }
+                if (shotBoiler == 1)
+                    {
+                        MODheatVariable = 3; //stop boiler, RUN CH pump      //////        CH COOL DOWN
+                    }
+            }
+    }
+
+/////////////////////////////////////////////////////NEW LOGIC////////////////////////////////////////////////////  HW
+
+if (hwVariable == 0 && MODheatVariable != 1)
+    {
+        MODhwVariable = 0; //stop boiler, stop hw pump                      //////        HW OFF
+    }
+
+if (hwVariable == 1)
+    {
+        if (shotBoiler == 0)
+            {
+                MODhwVariable = 1; //start boiler, start hw pump            //////        HW ON
+            }
+        if (shotBoiler == 1)
+            {
+                MODheatVariable = 3; //stop boiler, RUN CH pump             //////        CH COOL DOWN
+            }
+    }
+
+/////////////////////////////////////////////////////NEW LOGIC////////////////////////////////////////////////////  SIMPLIFIED EXPRESSIONS
+
+if (MODheatVariable == 0)
+    {
+        boilerStop(); //stop boiler, stop ch pump            //////        CH OFF 
+        chStop();
+    }
+if (MODheatVariable == 1)
+    {
+        boilerStart(); //start boiler, start ch pump         //////        CH ON
+        chStart();
+    }
+if (MODheatVariable == 3)
+    {
+        boilerStop(); //stop boiler, RUN CH pump             //////        CH COOL DOWN
+        chStart();
+    }    
+    
+    
+if (MODhwVariable == 0)
+    {
+        boilerStop(); //stop boiler, stop hw pump            //////        HW OFF
+        hwStop();
+    }
+if (MODhwVariable == 1)
+    {
+        boilerStart(); //start boiler, start hw pump         //////        HW ON 
+        hwStart();
+    }
+    
+    
+} // END OF LOOP 
+
+
+//HOT WATER TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////HW BOUNDARY TIMER//////////////////
+void makeHotWater()
+{
+        hwcountdownStart = (Time.hour() - hwOnH)*60;
+            hwcountdownStop = (Time.hour() - hwOfH)*60;
+         
+         if (Time.hour() >= hwOnH && Time.hour() <= hwOfH) 
+             {
+             if (((Time.minute() + hwcountdownStart) >= hwOnM) && (Time.minute() + (hwcountdownStop) < hwOfM))
+                 {
+                  
+                    hwVariable = 1;
+                 }
+             }
+             else
+                 {
+                    hwVariable = 0;
+                    
+                 }
+        }
+//HOT WATER TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////HW BOUNDARY TIMER//////////////////
+ 
+ 
+//TIMER SECTION — BOUNDARY TIMER/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void makeHeat()
+{
+        
+            w1countdownStart = (Time.hour() - w1OnH)*60;
+            w1countdownStop = (Time.hour() - w1OfH)*60;
+            
+            w2countdownStart = (Time.hour() - w2OnH)*60;
+            w2countdownStop = (Time.hour() - w2OfH)*60;
+            
+            w3countdownStart = (Time.hour() - w3OnH)*60;
+            w3countdownStop = (Time.hour() - w3OfH)*60;
+         
+        //TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////CH W1 BOUNDARY TIMER//////////////////////////
+        if ((Time.hour() >= w1OnH && Time.hour() <= w1OfH)) 
+             {
+            if (((Time.minute() + w1countdownStart) >= w1OnM) && (Time.minute() + (w1countdownStop) < w1OfM))
+                {
+                    heatVariable = 1;
+                    lcd.print(0, 1, "W1 on.");
+                    Blynk.virtualWrite(V8, 0);
+                    chConstant = 0;
+                }
+            else
+                {
+                    heatVariable = 0;
+                    lcd.print(0, 1, "W1 OFF");
+                } 
+            
+             }
+        //TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////CH W2 BOUNDARY TIMER//////////////////////////
+        if (Time.hour() >= w2OnH && Time.hour() <= w2OfH) 
+             {
+            if (((Time.minute() + w2countdownStart) >= w2OnM) && (Time.minute() + (w2countdownStop) < w2OfM))
+                {
+                    heatVariable = 1;
+                    lcd.print(0, 1, "W2 on.");
+                    Blynk.virtualWrite(V8, 0);
+                    chConstant = 0;
+                }
+            else
+                {
+                    heatVariable = 0;
+                    lcd.print(0, 1, "W2 OFF");
+                } 
+            
+             }
+        //TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////CH W3 BOUNDARY TIMER//////////////////////////
+        if (Time.hour() >= w3OnH && Time.hour() <= w3OfH) 
+             {
+            if (((Time.minute() + w3countdownStart) >= w3OnM) && (Time.minute() + (w3countdownStop) < w3OfM))
+                {
+                    heatVariable = 1;
+                    lcd.print(0, 1, "W3 on.");
+                    Blynk.virtualWrite(V8, 0);
+                    chConstant = 0;
+                    //Particle.publish("CH", "Const. OFF", PRIVATE);
+                }
+            else
+                {
+                    heatVariable = 0;
+                    lcd.print(0, 1, "W3 OFF");
+                } 
+            
+             }
+        
+        
+}
+//TIMER SECTION — BOUNDARY TIMER/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+       
+       
+       
+//////////////////////////////////////////////////////INTO THE VOID/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void chStart()
+            {
+                digitalWrite(D2,HIGH); //PUMP ON AND CH VALVE OPEN
+                Blynk.virtualWrite(V5, 900); //PUMP LED ON
+            }
+            
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void chStop()           
+            {
+                digitalWrite(D2,LOW); //PUMP OFF AND CH VALVE CLOSED
+                Blynk.virtualWrite(V5, 0); //PUMP LED OFF
+            }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void hwStart()
+            {
+                digitalWrite(D1,HIGH); //PUMP ON AND HW VALVE OPEN  ----------- WAS D1
+                Blynk.virtualWrite(V12, 900);
+            }
+            
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void hwStop()           
+            {
+                digitalWrite(D1,LOW); //PUMP OFF AND HW VALVE CLOSED  ----------- WAS D1
+                Blynk.virtualWrite(V12, 0);
+            }           
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void boilerStop()
+            {
+                Blynk.virtualWrite(V9, 0); //boiler
+                digitalWrite(D3,LOW); //boiler OFF
+            }           
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void boilerStart()
+            {
+                Blynk.virtualWrite(V9, 900); //boiler
+                digitalWrite(D3,HIGH); //boiler OFF
+            }           
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+BLYNK_WRITE(V11) {                  // boiler delay for cool down 
+  boilerDelaySlide2 = (param.asFloat()*1000);
+  //lcd2.clear();
+  lcd.print(0, 1, (boilerDelaySlide2)/1000);
+  EEPROM.put(180, boilerDelaySlide2);
+  Particle.publish("boilerDelaySlide2", String(boilerDelaySlide2), PRIVATE);
+  //delay(100);
+  //lcd2.clear();
+}
+
+
+
+BLYNK_WRITE(V32) {                  
+  pumpNoNeed = param.asFloat();
+
+  Blynk.virtualWrite(V32, pumpNoNeed);
+  EEPROM.put(600, pumpNoNeed);         ////////////////////// TRY-OUT 20-10-2019 ////////////////////////
+  delay(100);
+}
+
+
+
+
+
+// reset
+BLYNK_WRITE(V10) {
+    if (param.asInt() == 1) 
+    { 
+     System.reset();
+    }  
+}
+
+
+
+// heating on
+BLYNK_WRITE(V2) {
+    if (param.asInt() == 1)
+        {
+            chON = 1;
+            //chLatch = 30;
+            Particle.publish("CH", "ON", PRIVATE);
+            //chLatch = 10;
+        }
+    if (param.asInt() == 0)
+        {  
+            chON = 0;
+            Particle.publish("CH", "OFF", PRIVATE);
+            //boilerDelay2 = (millis() + 20100);
+            //chLatch = 15;
+        }
+}
+
+
+// hot water
+BLYNK_WRITE(V1) {
+    if (param.asInt() == 1)
+        {
+            hwON = 1;
+            //hwLatch = 30;
+            Particle.publish("HW", "ON", PRIVATE);
+            //hwLatch = 10;
+        }
+    if (param.asInt() == 0)
+        {  
+            hwON = 0;
+            Particle.publish("HW", "OFF", PRIVATE);
+            //boilerDelay = (millis() + 20100);
+            //hwLatch = 15;
+        }
+}
+
+
+// hot water upper threshold
+BLYNK_WRITE(V4) {
+    HWupper = (param.asFloat());
+    EEPROM.put(20, HWupper);
+}
+
+// hot water lower threshold
+BLYNK_WRITE(V3) {
+    HWlower = (param.asFloat());
+    EEPROM.put(10, HWlower);
+}
+
+
+BLYNK_WRITE(V8) 
+{
+    if (param.asInt() == 1) 
+        {
+            Particle.publish("CH", "Const. ON", PRIVATE);
+            lcd.print(0, 1, "Const. ON");
+            chConstant = 1;
+            
+        }
+    if (param.asInt() == 0)
+        {
+            chConstant = 0;
+            Particle.publish("CH", "Const. OFF", PRIVATE);
+            lcd.print(0, 1, "Const. OFF");
+            delay(2000);
+            lcd.clear();
+        }
+}
+
+
+
+void getTemp(const char *event, const char *data) // gets outside temp from darksky and puts it on gauge and chart
+{ 
+  responseValue = atof(data);
+  Blynk.virtualWrite(V67, responseValue);
+  //delay(100);
+  //Blynk.virtualWrite(V62, responseValue); ///old dial display
+  lcd.print(11, 0, "OUTºC");
+  lcd.print(11, 1, responseValue);
+
+}
+
+void myHandler4(const char *event, const char *data) // // BOILER TEMP
+{
+if (data){
+    Blynk.virtualWrite(V94, data);
+    lcd.print(0, 0, data);
+    lcd.print(5, 0, "ºC");
+    
+    boilerT = atof(data);
+    
+}
+}
+
+
+
+
+void myHandler3(const char *event, const char *data) // 
+{
+if (data){
+    Blynk.virtualWrite(V80, data);
+}
+}
+
+
+void myHandler2(const char *event, const char *data) // hallway temperature ºC written to Blynk LCD
+{
+if (data){
+    //Blynk.virtualWrite(V17, data); ///old dial display
+    Blynk.virtualWrite(V61, data);
+    lcd.print(11, 0, "IN ºC");
+    lcd.print(11, 1, data);
+    
+    Particle.publish("BOILER Status", String(shotBoiler), PRIVATE); // placed here to reduce broadcast frequency
+    Particle.publish("shot status", String(shot), PRIVATE);
+    
+    realTemp = atof(data);
+    //Particle.publish("realTemp", String(realTemp));
+    
+// BUILD PUMP PROFILES
+
+   if (realTemp >= pumpNoNeed)    //It's warm, turn the heating off                       
+  {
+    shot = 1;
+    //lcd.print(0, 0, "shot1");
+  } 
+   else 
+   if (realTemp < pumpNoNeed)    //turn heating on
+  {
+    shot = 2;   
+    //lcd.print(0, 0, "shot2");
+  }
+}
+
+} 
+
+
