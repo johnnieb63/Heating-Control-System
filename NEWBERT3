@@ -24,7 +24,7 @@ WidgetLCD lcd(V0);
 //WidgetTerminal terminal(V27);
 
 
-char auth[] = "VDVVDVDVDVDVDVDVDVDVDJJJSH";
+char auth[] = "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv";
 
 //int constantOn = 0;
 //int hotWaterConst = 0;
@@ -39,9 +39,6 @@ int shotBoiler = 0;
 
 int heatVariable = 0;
 int hwVariable = 0;
-
-int MODheatVariable = 0;
-int MODhwVariable = 0;
 
 //int pulseTimeOn = 0;
 //int pulseTimeOff = 0;
@@ -150,7 +147,7 @@ void setup()
         
         lcd.clear();
         lcd.print(0, 0, "Hello! ");
-        lcd.print(0, 1, "New Bert");
+        lcd.print(0, 1, "NewBert3");
         delay(3000);
         lcd.clear();
         
@@ -186,10 +183,7 @@ void loop()
 
 Blynk.run();
 
-lcd.print(8, 0, "C");
-lcd.print(9, 0, "H");
-lcd.print(8, 1, String(MODheatVariable));
-lcd.print(9, 1, String(MODhwVariable));
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////  
 
@@ -231,86 +225,132 @@ if (boilerT < HWlower)
 
 /////////////////////////////////////////////////////NEW LOGIC////////////////////////////////////////////////////  CH
 
-if (heatVariable == 0 or chConstant == 0)
+
+
+if (hwVariable == 0 && heatVariable == 0 && chConstant != 1)
     {
         if (shotBoiler == 0)
             {
-                MODheatVariable = 0; //stop boiler, stop ch pump            //////        CH OFF
+                Blynk.virtualWrite(V9, 0);         //boiler LED OFF
+                digitalWrite(D3,LOW);             //boiler OFF
+                digitalWrite(D2,LOW);            //PUMP OFF AND CH VALVE CLOSED
+                Blynk.virtualWrite(V5, 0);      //PUMP LED OFF                      
+                digitalWrite(D1,LOW);          //PUMP OFF AND HW VALVE CLOSED  
+                Blynk.virtualWrite(V12, 0);   //HW LED OFF   
             }
         if (shotBoiler == 1)
             {
-                MODheatVariable = 3; //stop boiler, RUN CH pump             //////        CH COOL DOWN
+                Blynk.virtualWrite(V9, 0);         //boiler LED OFF
+                digitalWrite(D3,LOW);             //boiler OFF
+                digitalWrite(D2,HIGH);            //PUMP ON AND CH VALVE OPEN
+                Blynk.virtualWrite(V5, 900);      //PUMP LED ON                      
+                digitalWrite(D1,LOW);          //PUMP OFF AND HW VALVE CLOSED  
+                Blynk.virtualWrite(V12, 0);   //HW LED OFF   
             }
     }
 
-if (heatVariable == 1 or chConstant == 1)////////////////////////////////
+if (hwVariable == 0 && heatVariable == 1 && chConstant != 1)
     {
         if (shot == 0)
             {
-                MODheatVariable = 1; //start boiler, start ch pump           //////        CH ON
+                Blynk.virtualWrite(V9, 900);       //boiler LED ON
+                digitalWrite(D3,HIGH);            //boiler ON
+                digitalWrite(D2,HIGH);           //PUMP ON AND CH VALVE OPEN
+                Blynk.virtualWrite(V5, 900);    //PUMP LED ON  
+                digitalWrite(D1,LOW);          //PUMP OFF AND HW VALVE CLOSED  
+                Blynk.virtualWrite(V12, 0);   //HW LED OFF  
             }
         if (shot == 1)
             {
-                if (shotBoiler == 0)
-                    {
-                        MODheatVariable = 0; //stop boiler, stop ch pump     //////        CH OFF
-                    }
-                if (shotBoiler == 1)
-                    {
-                        MODheatVariable = 3; //stop boiler, RUN CH pump      //////        CH COOL DOWN
-                    }
+                Blynk.virtualWrite(V9, 0);        //boiler LED OFF
+                digitalWrite(D3,LOW);            //boiler OFF
+                digitalWrite(D2,LOW);           //PUMP OFF AND CH VALVE CLOSED
+                Blynk.virtualWrite(V5, 0);     //PUMP LED OFF 
+                digitalWrite(D1,LOW);         //PUMP OFF AND HW VALVE CLOSED  
+                Blynk.virtualWrite(V12, 0);  //HW LED OFF  
             }
     }
-
-/////////////////////////////////////////////////////NEW LOGIC////////////////////////////////////////////////////  HW
-
-if (hwVariable == 0 && MODheatVariable != 1)
-    {
-        MODhwVariable = 0; //stop boiler, stop hw pump                      //////        HW OFF
-    }
-
-if (hwVariable == 1)
+    
+if (hwVariable == 1 && heatVariable == 0 && chConstant != 1)
     {
         if (shotBoiler == 0)
             {
-                MODhwVariable = 1; //start boiler, start hw pump            //////        HW ON
+                digitalWrite(D1,HIGH);               //PUMP ON AND HW VALVE OPEN 
+                Blynk.virtualWrite(V12, 900);       //HW LED ON
+                Blynk.virtualWrite(V9, 900);       //boiler LED ON
+                digitalWrite(D3,HIGH);            //boiler ON
+                digitalWrite(D2,LOW);            //PUMP OFF AND CH VALVE CLOSED
+                Blynk.virtualWrite(V5, 0);      //PUMP LED OFF
             }
         if (shotBoiler == 1)
             {
-                MODheatVariable = 3; //stop boiler, RUN CH pump             //////        CH COOL DOWN
+                digitalWrite(D1,LOW);               //PUMP ON AND HW VALVE OPEN  
+                Blynk.virtualWrite(V12, 0);        //HW LED ON
+                Blynk.virtualWrite(V9, 0);        //boiler LED OFF
+                digitalWrite(D3,LOW);            //boiler OFF
+                digitalWrite(D2,HIGH);          //PUMP ON AND CH VALVE OPEN
+                Blynk.virtualWrite(V5, 900);   //PUMP LED ON  
             }
     }
 
-/////////////////////////////////////////////////////NEW LOGIC////////////////////////////////////////////////////  SIMPLIFIED EXPRESSIONS
+if (hwVariable == 1 && heatVariable == 1 && chConstant != 1)
+    {
+        if (shot == 0)
+            {
+                Blynk.virtualWrite(V9, 900);       //boiler LED ON
+                digitalWrite(D3,HIGH);            //boiler ON
+                digitalWrite(D2,HIGH);           //PUMP ON AND CH VALVE OPEN
+                Blynk.virtualWrite(V5, 900);    //PUMP LED ON  
+                digitalWrite(D1,HIGH);              //PUMP ON AND HW VALVE OPEN  
+                Blynk.virtualWrite(V12, 900);      //HW LED ON
+            }
+        if (shot == 1)
+            {
+                    if (shotBoiler == 0)
+                        {
+                            digitalWrite(D1,HIGH);              //PUMP ON AND HW VALVE OPEN  
+                            Blynk.virtualWrite(V12, 900);      //HW LED ON
+                            Blynk.virtualWrite(V9, 900);        //boiler LED ON
+                            digitalWrite(D3,HIGH);             //boiler ON
+                            digitalWrite(D2,LOW);           //PUMP OFF AND CH VALVE CLOSED
+                            Blynk.virtualWrite(V5, 0);     //PUMP LED OFF 
+                        }
+                    if (shotBoiler == 1)
+                        {
+                            digitalWrite(D1,LOW);             //PUMP OFF AND HW VALVE CLOSED
+                            Blynk.virtualWrite(V12, 0);      //HW LED OFF
+                            Blynk.virtualWrite(V9, 0);        //boiler LED OFF
+                            digitalWrite(D3,LOW);            //boiler OFF
+                            digitalWrite(D2,LOW);           //PUMP OFF AND CH VALVE CLOSED
+                            Blynk.virtualWrite(V5, 0);     //PUMP LED OFF 
+                        }
+            }
+    }
 
-if (MODheatVariable == 0)
+
+
+
+
+
+
+
+if (chConstant == 1)
     {
-        boilerStop(); //stop boiler, stop ch pump            //////        CH OFF 
-        chStop();
+        //MODheatVariable = 1;
+        Blynk.virtualWrite(V9, 900);            //boiler LED ON
+        digitalWrite(D3,HIGH);                 //boiler ON
+        digitalWrite(D2,HIGH);                //PUMP ON AND CH VALVE OPEN
+        Blynk.virtualWrite(V5, 900);         //PUMP LED ON
+        digitalWrite(D1,HIGH);              //PUMP ON AND HW VALVE OPEN  
+        Blynk.virtualWrite(V12, 900);      //HW LED ON
     }
-if (MODheatVariable == 1)
+if (chConstant == 0)
     {
-        boilerStart(); //start boiler, start ch pump         //////        CH ON
-        chStart();
+        //do nothing
     }
-if (MODheatVariable == 3)
-    {
-        boilerStop(); //stop boiler, RUN CH pump             //////        CH COOL DOWN
-        chStart();
-    }    
-    
-    
-if (MODhwVariable == 0)
-    {
-        boilerStop(); //stop boiler, stop hw pump            //////        HW OFF
-        hwStop();
-    }
-if (MODhwVariable == 1)
-    {
-        boilerStart(); //start boiler, start hw pump         //////        HW ON 
-        hwStart();
-    }
-    
+
+/////////////////////////////////////////////////////NEW LOGIC////////////////////////////////////////////////////  
+ 
     
 } // END OF LOOP 
 
@@ -412,7 +452,7 @@ void makeHeat()
        
        
 //////////////////////////////////////////////////////INTO THE VOID/////////////////////////////////////////////////////////////////////////////////////////////////////
-
+/*
     void chStart()
             {
                 digitalWrite(D2,HIGH); //PUMP ON AND CH VALVE OPEN
@@ -455,9 +495,9 @@ void makeHeat()
     void boilerStart()
             {
                 Blynk.virtualWrite(V9, 900); //boiler
-                digitalWrite(D3,HIGH); //boiler OFF
+                digitalWrite(D3,HIGH); //boiler ON
             }           
-
+*/
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -516,6 +556,40 @@ BLYNK_WRITE(V2) {
         }
 }
 
+// ch on manual
+BLYNK_WRITE(V6) {
+    if (param.asInt() == 1)
+        {
+            Blynk.virtualWrite(V9, 900); //boiler
+            digitalWrite(D3,HIGH); //boiler OFF
+            digitalWrite(D2,HIGH); //PUMP ON AND HW VALVE OPEN  ----------- WAS D1
+            Blynk.virtualWrite(V12, 900);
+        }
+    if (param.asInt() == 0)
+        {  
+            Blynk.virtualWrite(V9, 0); //boiler
+            digitalWrite(D3,LOW); //boiler OFF
+            digitalWrite(D2,LOW); //PUMP ON AND HW VALVE OPEN  ----------- WAS D1
+            Blynk.virtualWrite(V12, 0);
+        }
+}
+// hw on manual
+BLYNK_WRITE(V7) {
+    if (param.asInt() == 1)
+        {
+            Blynk.virtualWrite(V9, 900); //boiler
+            digitalWrite(D3,HIGH); //boiler OFF
+            digitalWrite(D1,HIGH); 
+            Blynk.virtualWrite(V12, 900);
+        }
+    if (param.asInt() == 0)
+        {  
+            Blynk.virtualWrite(V9, 0); //boiler
+            digitalWrite(D3,LOW); //boiler OFF
+            digitalWrite(D1,LOW); 
+            Blynk.virtualWrite(V12, 0);
+        }
+}
 
 // hot water
 BLYNK_WRITE(V1) {
@@ -553,18 +627,16 @@ BLYNK_WRITE(V8)
 {
     if (param.asInt() == 1) 
         {
-            Particle.publish("CH", "Const. ON", PRIVATE);
-            lcd.print(0, 1, "Const. ON");
+            Particle.publish("CH", "-. ON", PRIVATE);
+            lcd.print(0, 1, "-. ON");
             chConstant = 1;
             
         }
     if (param.asInt() == 0)
         {
             chConstant = 0;
-            Particle.publish("CH", "Const. OFF", PRIVATE);
-            lcd.print(0, 1, "Const. OFF");
-            delay(2000);
-            lcd.clear();
+            Particle.publish("CH", "-.OFF", PRIVATE);
+            lcd.print(0, 1, "-.OFF");
         }
 }
 
@@ -628,7 +700,7 @@ if (data){
    else 
    if (realTemp < pumpNoNeed)    //turn heating on
   {
-    shot = 2;   
+    shot = 0;   
     //lcd.print(0, 0, "shot2");
   }
 }
