@@ -25,7 +25,7 @@ WidgetLCD lcd(V0);
 //WidgetTerminal terminal(V27);
 
 
-char auth[] = "nnnnnnnnnnnnnn";
+char auth[] = "vvvvvvvvvvvvvf";
 
 //int constantOn = 0;
 //int hotWaterConst = 0;
@@ -87,7 +87,7 @@ int chON = 0;
 //////////////////////GENERAL////////////////////////////////
 
 int w1OnH = 6;
-int w1OnM;
+int w1OnM = 30;
 int w1OfH = 9;
 int w1OfM;
 
@@ -102,7 +102,7 @@ int w3OfH = 21;
 int w3OfM;  
 
 
-int hwOnH = 7;
+int hwOnH = 6;
 int hwOnM;
 int hwOfH = 19; // was 19
 int hwOfM;
@@ -256,7 +256,7 @@ if (hwVariable == 0 && heatVariable == 1 && chConstant != 1)
     
 if (hwVariable == 1 && heatVariable == 0 && chConstant != 1)
     {
-        if (shotHW == 1) //tank up to temp
+        if (shotHW == 1) //tank up to temp, hall way not calling for heat and anyway, heating is off
             {
                 if (shotBoiler == 0) //tank up to temp, boiler temp safe, 
                                      //shut everything down. 
@@ -265,9 +265,9 @@ if (hwVariable == 1 && heatVariable == 0 && chConstant != 1)
                         CODE000();  
                     }
                 if (shotBoiler == 1) //tank up to temp, boiler too hot, cool down.
-                                                                //heating is off      010
+                                                                //heating is off      100  
                     {
-                       CODE010();  
+                       CODE100();  
                     }
             }
         if (shotHW == 0) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
@@ -277,7 +277,7 @@ if (hwVariable == 1 && heatVariable == 0 && chConstant != 1)
                     {
                         CODE101();
                     }
-                if (shotBoiler == 1) //boiler too hot, cool down                      010
+                if (shotBoiler == 1) //boiler too hot, cool down                      010 
                     {
                         CODE010(); 
                     }
@@ -347,7 +347,7 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1)
 
 if (chConstant == 1)
     {
-        CODE011();
+        CODE111();
     }
 if (chConstant == 0)
     {
@@ -390,6 +390,17 @@ void CODE000()
     digitalWrite(D2,LOW);           //PUMP OFF AND CH VALVE CLOSED
     Blynk.virtualWrite(V5, 0);     //PUMP LED OFF  
     lcd.print(8, 0, "000");
+ }
+ 
+void CODE100()
+ {
+    digitalWrite(D1,HIGH);            //PUMP ON AND HW VALVE OPEN  
+    Blynk.virtualWrite(V12, 900);    //HW LED ON
+    Blynk.virtualWrite(V9, 0);         //boiler LED OFF
+    digitalWrite(D3,LOW);             //boiler OFF
+    digitalWrite(D2,LOW);            //PUMP OFF AND CH VALVE CLOSED
+    Blynk.virtualWrite(V5, 0);      //PUMP LED OFF 
+    lcd.print(8, 0, "010");
  }
  
 void CODE010()
@@ -496,7 +507,14 @@ void makeHeat()
             else
                 {
                     heatVariable = 0;
-                    lcd.print(0, 1, "W1 OFF");
+                    if (chConstant == 0)
+                        {
+                            lcd.print(0, 1, "W1 OFF");
+                        }
+                    if (chConstant == 1)
+                        {
+                            lcd.print(0, 1, "Const.");
+                        }
                 } 
             
              }
@@ -513,7 +531,14 @@ void makeHeat()
             else
                 {
                     heatVariable = 0;
-                    lcd.print(0, 1, "W2 OFF");
+                    if (chConstant == 0)
+                        {
+                            lcd.print(0, 1, "W2 OFF");
+                        }
+                    if (chConstant == 1)
+                        {
+                            lcd.print(0, 1, "Const.");
+                        }
                 } 
             
              }
@@ -531,7 +556,14 @@ void makeHeat()
             else
                 {
                     heatVariable = 0;
-                    lcd.print(0, 1, "W3 OFF");
+                    if (chConstant == 0)
+                        {
+                            lcd.print(0, 1, "W3 OFF");
+                        }
+                    if (chConstant == 1)
+                        {
+                            lcd.print(0, 1, "Const.");
+                        }
                 } 
             
              }
@@ -685,11 +717,11 @@ if (data)
         tankT = atof(data);
         
     }
-if (tankT > HWupper)
+if (tankT > 59) //59ºC HW
     {
         shotHW = 1; //Upper Limit Reached
     }
-if (tankT < HWlower)
+if (tankT < 49) //49ºC HW
     {
         shotHW = 0; //Safe 
     }
