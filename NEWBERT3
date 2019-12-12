@@ -25,7 +25,7 @@ WidgetLCD lcd(V0);
 //WidgetTerminal terminal(V27);
 
 
-char auth[] = "vbvbvbvbvbvbvbvbvbvbv";
+char auth[] = "mineminemineminemine";
 
 
 int publish;
@@ -34,7 +34,6 @@ int publish;
 
 //int CHcheck = 0;
 //int shotCH = 0;
-//int shotHW = 0;
 
 float boilerT;
 int shot = 1;
@@ -116,6 +115,9 @@ int hwOfM;
 float HWupper = 58; 
 float HWlower = 48; 
 
+float Tankupper; 
+float Tanklower; 
+
 //char responseString[64];
 double responseValue;
 //double responseValue6;
@@ -125,7 +127,7 @@ float tankT;
 //float delta;
 
 //Timer timer(10000, statusDisplay);
-ApplicationWatchdog wd(60000, System.reset);
+//ApplicationWatchdog wd(60000, System.reset);
 
 
 
@@ -151,7 +153,7 @@ void setup()
         pinMode(D3,OUTPUT); //boiler fired independently of pump and after a delay
         
         //pulseOn = 0;
-        Particle.subscribe("temperature!", myHandler20, MY_DEVICES); 
+        Particle.subscribe("temperature!", tler20, MY_DEVICES); 
         Particle.subscribe("TankT", myHandler50, MY_DEVICES);
         
         //Particle.subscribe("humidity!", myHandler3, MY_DEVICES); 
@@ -182,6 +184,11 @@ void setup()
         Blynk.virtualWrite(V3, HWlower);
         EEPROM.get(20, HWupper);
         Blynk.virtualWrite(V4, HWupper);
+        
+        EEPROM.get(30, Tanklower);
+        Blynk.virtualWrite(V3, Tanklower);
+        EEPROM.get(40, Tankupper);
+        Blynk.virtualWrite(V4, Tankupper);
        
         Blynk.virtualWrite(V9, 0); //HW LED OFF
         
@@ -360,7 +367,7 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
                                 }
                             if (shotHW == 1) //tank up to temp, run cool down through CH            010
                                 {
-                                    CODE010();
+                                    CODE110();
                                 }
                         }
             }
@@ -436,15 +443,14 @@ if (realTemp < pumpNoNeed)    //turn heating on
     //Particle.publish("pumpNoNeed", String(pumpNoNeed,2), PRIVATE);
   }
 
+//////////////////////////////////////////////////////////////////////////
 
-if (tankT > 59) //59ºC HW
-    {
-        shotHW = 1; //Upper Limit Reached
-    }
-if (tankT < 49) //49ºC HW
-    {
-        shotHW = 0; //Safe 
-    }
+    
+//
+lcd.print(8, 1, shotHW);
+lcd.print(9, 1, shot);
+lcd.print(10, 1, shotBoiler);
+//
 
 
 } // END OF LOOP 
@@ -686,17 +692,6 @@ BLYNK_WRITE(V32) {
 
 
 
-
-// reset
-BLYNK_WRITE(V10) {
-    if (param.asInt() == 1) 
-    { 
-     System.reset();
-    }  
-}
-
-
-
 // heating on
 BLYNK_WRITE(V2) {
     if (param.asInt() == 1)
@@ -736,16 +731,29 @@ BLYNK_WRITE(V1) {
 }
 
 
-// hot water upper threshold
+// boiler upper threshold
 BLYNK_WRITE(V4) {
     HWupper = (param.asFloat());
     EEPROM.put(20, HWupper);
 }
 
-// hot water lower threshold
+// boiler lower threshold
 BLYNK_WRITE(V3) {
     HWlower = (param.asFloat());
     EEPROM.put(10, HWlower);
+}
+
+
+// boiler upper threshold
+BLYNK_WRITE(V11) {
+    Tankupper = (param.asFloat());
+    EEPROM.put(40, Tanklower);
+}
+
+// boiler lower threshold
+BLYNK_WRITE(V10) {
+    Tanklower = (param.asFloat());
+    EEPROM.put(30, Tanklower);
 }
 
 
@@ -821,12 +829,26 @@ if (boilerT < HWlower)
 
 
 
-void myHandler50(const char *event, const char *data) // // tank temp
+void myHandler50(const char *event, const char *data2) // // tank temp
 {
-if (data)
+if (data2)
     {
-        tankT = atof(data);
-        
+        tankT = atof(data2);
+    
+        if (tankT > Tankupper) //above 59ºC HW
+            {
+                shotHW = 1; //Upper Limit Reached
+            }
+        /*
+        if ((tankT <= 59) && (tankT >= 55)) //between 59ºC and 53ºC 
+            {
+                shotHW = 3; //Upper Limit Reached
+            }
+        */
+        if (tankT < Tanklower) //below 53ºC HW
+            {
+                shotHW = 0; //Safe 
+            }
         
     }
 
@@ -843,15 +865,17 @@ if (data){
 }*/
 
 
-void myHandler20(const char *event, const char *data) // hallway temperature ºC written to Blynk LCD
+void tler20(const char *event, const char *zdata) // hallway temperature ºC written to Blynk LCD
 {
-if (data){
+if (zdata){
     //Blynk.virtualWrite(V17, data); ///old dial display
     //Blynk.virtualWrite(V61, data);///==========================================================================old white line on graph
-    lcd.print(12, 0, "INºC");
-    lcd.print(12, 1, data);
+    realTemp = atof(zdata);
     
-    realTemp = atof(data);
+    lcd.print(12, 0, "INºC");
+    lcd.print(12, 1, realTemp);
+    
+    
     
     
     //Particle.publish("BOILER Status", String(shotBoiler), PRIVATE); // placed here to reduce broadcast frequency
