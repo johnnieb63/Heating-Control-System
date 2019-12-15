@@ -25,7 +25,7 @@ WidgetLCD lcd(V0);
 //WidgetTerminal terminal(V27);
 
 
-char auth[] = "mineminemineminemine";
+char auth[] = "your code goes here";
 
 
 int publish;
@@ -37,7 +37,7 @@ int publish;
 
 float boilerT;
 int shot = 1;
-int shotBoiler = 0;
+int shotBoiler;
 int shotHW;
 
 int heatVariable = 0;
@@ -112,8 +112,8 @@ int hwOfH = 19; // was 19
 int hwOfM;
 */
 ////////////////////////////////////////////////////////
-float HWupper = 58; 
-float HWlower = 48; 
+float HWupper; 
+float HWlower; 
 
 float Tankupper; 
 float Tanklower; 
@@ -186,16 +186,17 @@ void setup()
         Blynk.virtualWrite(V4, HWupper);
         
         EEPROM.get(30, Tanklower);
-        Blynk.virtualWrite(V3, Tanklower);
+        Blynk.virtualWrite(V11, Tanklower);
         EEPROM.get(40, Tankupper);
-        Blynk.virtualWrite(V4, Tankupper);
+        Blynk.virtualWrite(V10, Tankupper);
        
         Blynk.virtualWrite(V9, 0); //HW LED OFF
         
         lcd.clear();
         //lcd2.clear();
         
-        
+        shotHW = 3;
+        shotBoiler = 1;
         
     }
 
@@ -265,7 +266,7 @@ if (hwVariable == 0 && heatVariable == 0 && chConstant != 1 && hwConstant != 1)
             }
         if (shotBoiler == 1) // HOW COULD THIS HAPPEN? END OF TIMER? COOL DOWN:      010
             {
-                CODE010();   
+                CODE110();   
             }
     }
 
@@ -543,7 +544,8 @@ void CODE111()
 //HOT WATER TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////HW BOUNDARY TIMER//////////////////
 void makeHotWater()
 {
-        if ((Time.hour() >= 6) && (Time.hour() <= 20))
+        //if ((Time.hour() >= 6) && (Time.hour() <= 20))
+        if (((Time.hour() >= 6) && (Time.hour() <= 8)) or ((Time.hour() >= 15) && (Time.hour() <= 20)))
         /*
         hwcountdownStart = (Time.hour() - hwOnH)*60;
             hwcountdownStop = (Time.hour() - hwOfH)*60;
@@ -745,13 +747,13 @@ BLYNK_WRITE(V3) {
 
 
 // boiler upper threshold
-BLYNK_WRITE(V11) {
+BLYNK_WRITE(V10) {
     Tankupper = (param.asFloat());
-    EEPROM.put(40, Tanklower);
+    EEPROM.put(40, Tankupper);
 }
 
 // boiler lower threshold
-BLYNK_WRITE(V10) {
+BLYNK_WRITE(V11) {
     Tanklower = (param.asFloat());
     EEPROM.put(30, Tanklower);
 }
@@ -817,11 +819,11 @@ if (data)
         boilerT = atof(data);
         
     }
-if (boilerT > HWupper)
+if ((boilerT*100) > (HWupper*100))
     {
         shotBoiler = 1; //Upper Limit Reached
     }
-if (boilerT < HWlower)
+if ((boilerT*100) < (HWlower*100))
     {
         shotBoiler = 0; //Safe 
     }
@@ -835,17 +837,17 @@ if (data2)
     {
         tankT = atof(data2);
     
-        if (tankT > Tankupper) //above 59ºC HW
+        if ((tankT*100) > (Tankupper*100)) //above 59ºC HW
             {
                 shotHW = 1; //Upper Limit Reached
             }
-        /*
-        if ((tankT <= 59) && (tankT >= 55)) //between 59ºC and 53ºC 
+        
+        if (((tankT*100) < (Tankupper*100)) && ((tankT*100) > (Tanklower*100))) //between 59ºC and 53ºC 
             {
                 shotHW = 3; //Upper Limit Reached
             }
-        */
-        if (tankT < Tanklower) //below 53ºC HW
+        
+        if ((tankT*100) < (Tanklower*100)) //below 53ºC HW
             {
                 shotHW = 0; //Safe 
             }
