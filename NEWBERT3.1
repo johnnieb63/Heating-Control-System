@@ -112,8 +112,8 @@ int hwOfH = 19; // was 19
 int hwOfM;
 */
 ////////////////////////////////////////////////////////
-float HWupper; 
-float HWlower; 
+//float HWupper; 
+//float HWlower; 
 
 float Tankupper; 
 float Tanklower; 
@@ -179,11 +179,12 @@ void setup()
         //Blynk.virtualWrite(V11, boilerDelaySlide2/1000);
         //delay(100);
         
-       
+        /*
         EEPROM.get(10, HWlower);
         Blynk.virtualWrite(V3, HWlower);
         EEPROM.get(20, HWupper);
         Blynk.virtualWrite(V4, HWupper);
+        */
         
         EEPROM.get(30, Tanklower);
         Blynk.virtualWrite(V11, Tanklower);
@@ -289,7 +290,7 @@ if (hwVariable == 1 && heatVariable == 0 && chConstant != 1 && hwConstant != 1)
                        CODE100();  
                     }
             }
-        if (shotHW == 0) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
+        if (shotHW != 1) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
             {
                 if (shotBoiler != 1) //boiler temp safe, 
                                      //run boiler and hw pump/valve                   101
@@ -313,7 +314,7 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
                         }
                     if (shotBoiler != 0) // Hall Way needs more heat, boiler over temp, WOULD THIS CASE EVER HAPPEN?
                         {
-                            if (shotHW == 0) //tank calling for more heat, boiler over temp CH ON    111
+                            if (shotHW != 1) //tank calling for more heat, boiler over temp CH ON    111
                                 {
                                     CODE111();
                                 }
@@ -327,7 +328,7 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
             {
                     if (shotBoiler != 1) //boiler temp in safe zone
                         {
-                            if (shotHW == 0) //tank calling for more heat                           101
+                            if (shotHW != 1) //tank calling for more heat                           101
                                 {
                                     CODE101();
                                 }
@@ -338,7 +339,7 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
                         }
                     if (shotBoiler == 1) //boiler too hot
                         {
-                            if (shotHW == 0) //tank calling for more heat                           100
+                            if (shotHW != 1) //tank calling for more heat                           100
                                 {
                                     CODE100();
                                 }
@@ -367,9 +368,9 @@ if (hwConstant == 1)
                        CODE100();  
                     }
             }
-        if (shotHW == 0) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
+        if (shotHW != 1) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
             {
-                if (shotBoiler == 0) //boiler temp safe, 
+                if (shotBoiler != 1) //boiler temp safe, 
                                      //run boiler and hw pump/valve                   101
                     {
                         CODE101();
@@ -808,6 +809,15 @@ if (data)
         //boilerT = atof(data);
         
     }
+    
+    if (shotBoiler == 1)
+        {
+           Blynk.setProperty(V9, "color", "#FF0000");
+        }
+    else
+        {
+            Blynk.setProperty(V9, "color", "#00FF00");
+        }
     /*
 if ((boilerT) > (HWupper))
     {
@@ -833,7 +843,7 @@ if (data2)
                 shotHW = 1; //Upper Limit Reached
             }
         
-        if (((tankT) < (Tankupper)) && ((tankT) > (Tanklower))) //between 59ºC and 53ºC 
+        if (((tankT) <= (Tankupper)) && ((tankT) >= (Tanklower))) //between 59ºC and 53ºC 
             {
                 shotHW = 3; //Upper Limit Reached
             }
