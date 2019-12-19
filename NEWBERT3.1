@@ -356,7 +356,7 @@ if (hwConstant == 1)
     {
         if (shotHW == 1) //tank up to temp, hall way not calling for heat and anyway, heating is off
             {
-                if (shotBoiler == 0) //tank up to temp, boiler temp safe, 
+                if (shotBoiler != 1) //tank up to temp, boiler temp safe, 
                                      //shut everything down. 
                                      //heating is off                                 000
                     {
@@ -431,10 +431,10 @@ if (publish < millis())
                   Blynk.virtualWrite(V94, shotBoiler);
                   Blynk.virtualWrite(V67, tankT);
                   
-                  
+                  Particle.publish("Bert2", "Is alive", PRIVATE);
               }
               
-          publish = (millis() + 60000);
+          publish = (millis() + 30000);
       }  
       
 //
@@ -814,6 +814,10 @@ if (data)
         {
            Blynk.setProperty(V9, "color", "#FF0000");
         }
+    if (shotBoiler == 3)
+        {
+           Blynk.setProperty(V9, "color", "#FFBF00");
+        }
     else
         {
             Blynk.setProperty(V9, "color", "#00FF00");
@@ -845,7 +849,7 @@ if (data2)
         
         if (((tankT) <= (Tankupper)) && ((tankT) >= (Tanklower))) //between 59ºC and 53ºC 
             {
-                shotHW = 3; //Upper Limit Reached
+                shotHW = 3; //mid-point
             }
         
         if ((tankT) < (Tanklower)) //below 53ºC HW
