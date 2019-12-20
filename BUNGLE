@@ -1,3 +1,21 @@
+/*// This #include statement was automatically added by the Particle IDE.
+#include <thermistor-library.h>
+
+// Analog pin the thermistor is connected to
+int thermPin0 = A0;
+
+// Voltage divider resistor value
+int thermRes = 10000;
+
+// Configure the Thermistor class
+Thermistor Thermistor(thermPin0, thermRes);
+
+///////////////////////////////////////////////////////////////////////////////
+
+*/
+
+
+
 // This #include statement was automatically added by the Particle IDE.
 #include <MCP9803.h>
 
@@ -9,7 +27,7 @@
 //test comment...
 
 
-//#define TOKEN "##################################"
+//#define TOKEN "ubidots key here"
 //#define DATA_SOURCE_NAME "KH_Monitor"
 
 //Ubidots ubidots(TOKEN);
@@ -23,11 +41,17 @@ double temph201;
 double temph202;
 double temph203;
 
+int boilerOver;
+int timeAdd;
+
 double tempAv;
 //double delta; 
 
 double tempFar;
 double tempuncorrected;
+
+//double HWupper;
+//double HWlower;
 
 int dly1;
 int dly2;
@@ -38,66 +62,69 @@ int dly4;
 
 int tog = 1;
 
-void setup() {
+double boilerUpper;
+double boilerLower;
+
+void setup() 
+{
     //Serial.begin(115200);
     
     sensor.setAddress(1,1,1);
-    Particle.variable("tempC", &tempAv, DOUBLE);
-    //Particle.variable("temperatureC", temperatureC);
-    //pinMode(BoilerSWITCH, OUTPUT); 
+    Particle.variable("Boiler", tempAv);
+    
+    //Thermistor.begin();
+    
+    boilerUpper = 60.00;
+    boilerLower = 54.00;
 }
 
 void loop() 
 {
+    
+    
     if (dly1 <= millis() && tog == 1)
         {
             temperature = sensor.temperature();
             tempuncorrected = (temperature - 32) * 0.555556;
             tempFar = temperature;
             temph201 = ((temperature - 32) * 0.555556); //* 0.895;
-            
-            //Particle.publish("BtempC1", String(temph201,2),PRIVATE);
-            tog = 2;
-            dly2 = millis() + 2000;
-            //tempAv1 = (temph201 + temph202 + temph203)/3;
+
+            //dly2 = millis() + 2000 + timeAdd;
+
+            if (temph201 > boilerUpper)
+                {
+                    boilerOver = 1; //Upper Limit Reached
+                    //timeAdd = 0;
+                    timeAdd = 2000;
+                }
+            if (temph201 >= boilerLower && temph201 <= boilerUpper)
+                {
+                    boilerOver = 3;
+                    timeAdd = 10000;
+                }
+            if (temph201 < boilerLower)
+                {
+                    boilerOver = 0; //Safe 
+                    timeAdd = 20000;
+                }
+                
+                tog = 4;
         }
-        
-    if (dly2 <= millis() && tog == 2)
+    
+    if (dly3 < millis())
         {
-            temperature = sensor.temperature();
-            tempuncorrected = (temperature - 32) * 0.555556;
-            tempFar = temperature;
-            temph202 = ((temperature - 32) * 0.555556); //* 0.895;
-            
-            //Particle.publish("-tempC2", String(temph202,2),PRIVATE);
-            tog = 3;
-            dly3 = millis() + 2000;
-            //tempAv2 = (temph201 + temph202 + temph203)/3;
+            Particle.publish("--BoilerC", String(temph201,2),PRIVATE);
+            //Particle.publish("mungoTankºC", String(Thermistor.getTempC(),2),PRIVATE);
+            dly3 = millis() + 15000;
         }
-        
-    if (dly3 <= millis() && tog == 3)
+      
+    if (tog == 4)
         {
-            temperature = sensor.temperature();
-            tempuncorrected = (temperature - 32) * 0.555556;
-            tempFar = temperature;
-            temph203 = ((temperature - 32) * 0.555556); //* 0.895;
-            
-            //Particle.publish("-tempC3", String(temph203,2),PRIVATE);
-            tog = 4;
-            dly4 = millis() + 2000;
-            //tempAv3 = (temph201 + temph202 + temph203)/3;
-        }
-        
-    if (dly4 <= millis() && tog == 4)
-        {
-            tempAv = (temph201 + temph202 + temph203)/3;
-            Particle.publish("tempC", String(tempAv,2),PRIVATE);
-            
-            //delta = (temph203 - temph201);
-            //Particle.publish("tempAcc", String(delta,2),PRIVATE);
-           
+            Particle.publish("Boiler", String(boilerOver), PRIVATE);
+            dly1 = millis() + 2000 + timeAdd;
             tog = 1;
-            dly1 = millis() + 6000;
         }
 }
+
+
 
