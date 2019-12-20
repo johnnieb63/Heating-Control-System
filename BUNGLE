@@ -45,20 +45,14 @@ int boilerOver;
 int timeAdd;
 
 double tempAv;
-//double delta; 
 
 double tempFar;
 double tempuncorrected;
-
-//double HWupper;
-//double HWlower;
 
 int dly1;
 int dly2;
 int dly3;
 int dly4;
-
-//int BoilerSWITCH = D6; 
 
 int tog = 1;
 
