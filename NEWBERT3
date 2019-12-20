@@ -25,7 +25,7 @@ WidgetLCD lcd(V0);
 //WidgetTerminal terminal(V27);
 
 
-char auth[] = "your code goes here";
+char auth[] = "code here";
 
 
 int publish;
@@ -35,7 +35,7 @@ int publish;
 //int CHcheck = 0;
 //int shotCH = 0;
 
-float boilerT;
+//float boilerT;
 int shot = 1;
 int shotBoiler;
 int shotHW;
@@ -86,7 +86,7 @@ int hwcountdownStart;
 int hwON = 0;
 int chON = 0;
 
-
+int allow;
 
 //////////////////////GENERAL////////////////////////////////
 /*
@@ -112,8 +112,8 @@ int hwOfH = 19; // was 19
 int hwOfM;
 */
 ////////////////////////////////////////////////////////
-float HWupper; 
-float HWlower; 
+//float HWupper; 
+//float HWlower; 
 
 float Tankupper; 
 float Tanklower; 
@@ -159,12 +159,9 @@ void setup()
         //Particle.subscribe("humidity!", myHandler3, MY_DEVICES); 
         Particle.subscribe("Boiler", myHandler4, MY_DEVICES); //BOILER TEMP
         
-        
-        Blynk.virtualWrite(V25, 0);
-        
         lcd.clear();
         lcd.print(0, 0, "Hello! ");
-        lcd.print(0, 1, "NewBert3");
+        lcd.print(0, 1, "NewBert 3.3");
         delay(3000);
         lcd.clear();
         
@@ -179,11 +176,12 @@ void setup()
         //Blynk.virtualWrite(V11, boilerDelaySlide2/1000);
         //delay(100);
         
-       
+        /*
         EEPROM.get(10, HWlower);
         Blynk.virtualWrite(V3, HWlower);
         EEPROM.get(20, HWupper);
         Blynk.virtualWrite(V4, HWupper);
+        */
         
         EEPROM.get(30, Tanklower);
         Blynk.virtualWrite(V11, Tanklower);
@@ -197,6 +195,7 @@ void setup()
         
         shotHW = 3;
         shotBoiler = 1;
+        int allow = 1;
         
     }
 
@@ -208,17 +207,7 @@ void loop()
 Blynk.run();
 
 
-if (publish < millis())
-      {
-          if (realTemp != 0 && boilerT != 0 && tankT != 0)
-              {
-                  Blynk.virtualWrite(V61, realTemp);///====plot graphs on Blynk
-                  Blynk.virtualWrite(V94, boilerT);
-                  Blynk.virtualWrite(V67, tankT);
-              }
-              
-          publish = (millis() + 60000);
-      }
+
       
       
 
@@ -262,11 +251,11 @@ if (hwVariable == 0 && heatVariable == 0 && chConstant != 1 && hwConstant != 1)
     {
         if (shotBoiler == 0) // EVERY THING OFF: 000 == D1-D2-D3                     000
             {
-                CODE000();  
+                CODE000();
             }
-        if (shotBoiler == 1) // HOW COULD THIS HAPPEN? END OF TIMER? COOL DOWN:      010
+        if (shotBoiler != 0) // Cool down                                            010
             {
-                CODE110();   
+                CODE010();   
             }
     }
 
@@ -278,7 +267,14 @@ if (hwVariable == 0 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
             }
         if (shot == 1) // hw water off, hall way up to temp //                       000
             {
-                CODE000();  
+                if (shotBoiler != 0) // Cool down                                            010
+                    {
+                        CODE010();   
+                    }
+                if (shotBoiler == 0)
+                    {
+                        CODE000();  
+                    }
             }
     }
     
@@ -286,7 +282,7 @@ if (hwVariable == 1 && heatVariable == 0 && chConstant != 1 && hwConstant != 1)
     {
         if (shotHW == 1) //tank up to temp, hall way not calling for heat and anyway, heating is off
             {
-                if (shotBoiler == 0) //tank up to temp, boiler temp safe, 
+                if (shotBoiler != 1) //tank up to temp, boiler temp safe, 
                                      //shut everything down. 
                                      //heating is off                                 000
                     {
@@ -298,9 +294,9 @@ if (hwVariable == 1 && heatVariable == 0 && chConstant != 1 && hwConstant != 1)
                        CODE100();  
                     }
             }
-        if (shotHW == 0) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
+        if (shotHW != 1) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
             {
-                if (shotBoiler == 0) //boiler temp safe, 
+                if (shotBoiler != 1) //boiler temp safe, 
                                      //run boiler and hw pump/valve                   101
                     {
                         CODE101();
@@ -318,30 +314,15 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
             {
                     if (shotBoiler == 0) //boiler OK
                         {
-                            if (shotHW == 0 && boilerT > tankT) //tank calling for more heat, 
-                                                              //Hall Way needs more heat             111
-                                {
-                                    CODE111();
-                                }
-                            if (shotHW == 0 && boilerT < tankT) //tank calling for more heat but 
-                                                              //boiler not hot enough to disturb 
-                                                              //the HW tank, Hall Way needs 
-                                                              //more heat                            011
-                                {
-                                    CODE011();
-                                } 
-                            if (shotHW == 1) //tank up to temp, Hall Way needs more heat             011
-                                {
-                                    CODE011();
-                                }
+                            CODE011(); // start heating from cold, leave tank out for now            011
                         }
-                    if (shotBoiler == 1) // Hall Way needs more heat, boiler over temp, WOULD THIS CASE EVER HAPPEN?
+                    if (shotBoiler != 0) // Hall Way needs more heat, either at 3 or 1
                         {
-                            if (shotHW == 0) //tank calling for more heat, boiler over temp CH ON    111
+                            if (shotHW != 1) //tank calling for more heat, boiler tem OK as CH ON    111
                                 {
                                     CODE111();
                                 }
-                            if (shotHW == 1) //tank up to temp, run cool down through CH 001         011
+                            if (shotHW == 1) //tank up to temp, run heating only                     011
                                 {
                                     CODE011();
                                 }
@@ -349,9 +330,9 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
             }
         if (shot == 1) //Hall Way up to temp
             {
-                    if (shotBoiler == 0) //boiler temp in safe zone
+                    if (shotBoiler != 1) //boiler temp in safe zone
                         {
-                            if (shotHW == 0) //tank calling for more heat                           101
+                            if (shotHW != 1) //tank calling for more heat                           101
                                 {
                                     CODE101();
                                 }
@@ -360,16 +341,9 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
                                     CODE000();
                                 }
                         }
-                    if (shotBoiler == 1) //boiler too hot
+                    if (shotBoiler == 1) //boiler in RED ZONE and heating off, cool down
                         {
-                            if (shotHW == 0) //tank calling for more heat                           100
-                                {
-                                    CODE100();
-                                }
-                            if (shotHW == 1) //tank up to temp, run cool down through CH            010
-                                {
-                                    CODE110();
-                                }
+                            CODE100(); //                                                           100
                         }
             }
     }
@@ -391,9 +365,9 @@ if (hwConstant == 1)
                        CODE100();  
                     }
             }
-        if (shotHW == 0) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
+        if (shotHW != 1) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
             {
-                if (shotBoiler == 0) //boiler temp safe, 
+                if (shotBoiler != 1) //boiler temp safe, 
                                      //run boiler and hw pump/valve                   101
                     {
                         CODE101();
@@ -446,13 +420,25 @@ if (realTemp < pumpNoNeed)    //turn heating on
 
 //////////////////////////////////////////////////////////////////////////
 
-    
+if (publish < millis())
+      {
+          if (realTemp != 0 && tankT != 0)
+              {
+                  Blynk.virtualWrite(V61, realTemp);///====plot graphs on Blynk
+                  Blynk.virtualWrite(V94, shotBoiler);
+                  Blynk.virtualWrite(V67, tankT);
+                  
+                  Particle.publish("Bert2", "Is alive", PRIVATE);
+              }
+              
+          publish = (millis() + 30000);
+      }  
+      
 //
 lcd.print(8, 1, shotHW);
 lcd.print(9, 1, shot);
 lcd.print(10, 1, shotBoiler);
 //
-
 
 } // END OF LOOP 
 
@@ -473,6 +459,7 @@ void CODE000()
     digitalWrite(D2,LOW);           //PUMP OFF AND CH VALVE CLOSED
     Blynk.virtualWrite(V5, 0);     //PUMP LED OFF  
     lcd.print(8, 0, "000");
+    //allow = 0;
  }
  
 void CODE100()
@@ -732,7 +719,7 @@ BLYNK_WRITE(V1) {
         }
 }
 
-
+/*
 // boiler upper threshold
 BLYNK_WRITE(V4) {
     HWupper = (param.asFloat());
@@ -744,7 +731,7 @@ BLYNK_WRITE(V3) {
     HWlower = (param.asFloat());
     EEPROM.put(10, HWlower);
 }
-
+*/
 
 // boiler upper threshold
 BLYNK_WRITE(V10) {
@@ -815,39 +802,54 @@ if (data)
         
         //lcd.print(0, 0, data);
         //lcd.print(5, 0, "ºC");
-        
-        boilerT = atof(data);
+        shotBoiler = atoi(data);
+        //boilerT = atof(data);
         
     }
-if ((boilerT*100) > (HWupper*100))
+    
+    if (shotBoiler == 1)
+        {
+           Blynk.setProperty(V9, "color", "#FF0000");
+        }
+    if (shotBoiler == 3)
+        {
+           Blynk.setProperty(V9, "color", "#FFBF00");
+        }
+    if (shotBoiler == 0)
+        {
+            Blynk.setProperty(V9, "color", "#0000FF");
+        }
+    /*
+if ((boilerT) > (HWupper))
     {
         shotBoiler = 1; //Upper Limit Reached
     }
-if ((boilerT*100) < (HWlower*100))
+if ((boilerT) < (HWlower))
     {
         shotBoiler = 0; //Safe 
     }
+    */
 }
 
 
 
-void myHandler50(const char *event, const char *data2) // // tank temp
+void myHandler50(const char *event2, const char *data2) // // tank temp
 {
 if (data2)
     {
         tankT = atof(data2);
     
-        if ((tankT*100) > (Tankupper*100)) //above 59ºC HW
+        if ((tankT) > (Tankupper)) //above 59ºC HW
             {
                 shotHW = 1; //Upper Limit Reached
             }
         
-        if (((tankT*100) < (Tankupper*100)) && ((tankT*100) > (Tanklower*100))) //between 59ºC and 53ºC 
+        if (((tankT) <= (Tankupper)) && ((tankT) >= (Tanklower))) //between 59ºC and 53ºC 
             {
                 shotHW = 3; //Upper Limit Reached
             }
         
-        if ((tankT*100) < (Tanklower*100)) //below 53ºC HW
+        if ((tankT) < (Tanklower)) //below 53ºC HW
             {
                 shotHW = 0; //Safe 
             }
@@ -867,7 +869,7 @@ if (data){
 }*/
 
 
-void tler20(const char *event, const char *zdata) // hallway temperature ºC written to Blynk LCD
+void tler20(const char *event3, const char *zdata) // hallway temperature ºC written to Blynk LCD
 {
 if (zdata){
     //Blynk.virtualWrite(V17, data); ///old dial display
