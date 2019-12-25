@@ -1,0 +1,928 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <blynk.h>
+
+
+
+
+// This #include statement was automatically added by the Particle IDE.
+//#include <DailyTimerSpark.h>
+
+// This #include statement was automatically added by the Particle IDE.
+//#include "lib1.h"
+
+//BERT as of 1/3/2018         major update – surfaced temperature thresholds https://community.particle.io/t/dailytimerspark-library-added/22911/11
+//BERT as of 17/1/2019 changed D0 to D1 as relay D0 not powering pump
+//BERT as of 09/09/2019 changed D1 to D2 for Heating
+//BERT D1 to become Domestic Hot Water
+//BERT D3 to power boiler separately to allow pump over run
+
+// BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT THE REAL BERT 
+
+WidgetLCD lcd(V0);
+
+
+//WidgetLCD lcd2(V6);
+//WidgetTerminal terminal(V27);
+
+
+char auth[] = "code here";
+
+
+int publish;
+int publish2;
+//int constantOn = 0;
+//int hotWaterConst = 0;
+
+//int CHcheck = 0;
+//int shotCH = 0;
+
+//float boilerT;
+int shot = 1;
+int shotBoiler;
+int shotHW;
+
+int heatVariable = 0;
+int hwVariable = 0;
+
+//int pulseTimeOn = 0;
+//int pulseTimeOff = 0;
+//int oneHour = 0;
+unsigned int heatTime = 0;
+//unsigned int tTime = 0;
+int boilerDelay; //ch
+int boilerDelay2; //hw
+int boilerDelayCHoff;
+int boilerDelayHWoff;
+int boilerDelayCHoff2;
+int boilerDelayHWoff2;
+//int boilerDelayBLRoff = 0;
+
+//int HWupper;
+//int HWlower;
+
+int pumpPumpAdd = 10000;
+
+int chConstant = 0;
+int hwConstant = 0;
+//int shutdownTimer = 0;
+
+//int boilerDelaySlide2; //  1 minutes
+
+int voidState;
+
+float pumpNoNeed = 0; // ºc threshold at which stops V32
+
+/*
+int w1countdownStop;
+int w1countdownStart;
+int w2countdownStop;
+int w2countdownStart;
+int w3countdownStop;
+int w3countdownStart;
+
+int hwcountdownStop;
+int hwcountdownStart;
+*/
+
+int hwON = 0;
+int chON = 0;
+
+int allow;
+
+//////////////////////GENERAL////////////////////////////////
+/*
+int w1OnH = 6;
+int w1OnM = 30;
+int w1OfH = 9;
+int w1OfM;
+
+int w2OnH = 15; //was 15:00
+int w2OnM;
+int w2OfH = 17;
+int w2OfM = 30; 
+
+int w3OnH = 18; 
+int w3OnM; 
+int w3OfH = 21; 
+int w3OfM;  
+
+
+int hwOnH = 6;
+int hwOnM;
+int hwOfH = 19; // was 19
+int hwOfM;
+*/
+////////////////////////////////////////////////////////
+//float HWupper; 
+//float HWlower; 
+
+float Tankupper; 
+float Tanklower; 
+
+//char responseString[64];
+double responseValue;
+//double responseValue6;
+float realTemp;
+
+float tankT;
+//float delta;
+
+//Timer timer(10000, statusDisplay);
+//ApplicationWatchdog wd(60000, System.reset);
+
+
+
+
+void setup()
+    {
+        
+        
+        //Particle.subscribe("hook-response/darksky", getTemp, MY_DEVICES);
+        
+        Blynk.begin(auth);
+        Blynk.syncAll();
+        
+        
+        Blynk.virtualWrite(V27, 0);
+        Blynk.virtualWrite(V5, 0);
+        Blynk.virtualWrite(V12, 0);
+        
+        
+            
+        pinMode(D1,OUTPUT); //was D1 13-11-19
+        pinMode(D2,OUTPUT); 
+        pinMode(D3,OUTPUT); //boiler fired independently of pump and after a delay
+        
+        //pulseOn = 0;
+        Particle.subscribe("temperature!", tler20, MY_DEVICES); 
+        Particle.subscribe("TankT", myHandler50, MY_DEVICES);
+        
+        //Particle.subscribe("humidity!", myHandler3, MY_DEVICES); 
+        Particle.subscribe("Boiler", myHandler4, MY_DEVICES); //BOILER TEMP
+        
+        lcd.clear();
+        lcd.print(0, 0, "Hello! ");
+        lcd.print(0, 1, "NewBert 3.6");
+        delay(3000);
+        lcd.clear();
+        
+        Time.zone(0);
+
+         
+        EEPROM.get(600, pumpNoNeed);
+        Blynk.virtualWrite(V32, pumpNoNeed);
+        delay(100);
+        
+        //EEPROM.get(180, boilerDelaySlide2);
+        //Blynk.virtualWrite(V11, boilerDelaySlide2/1000);
+        //delay(100);
+        
+        /*
+        EEPROM.get(10, HWlower);
+        Blynk.virtualWrite(V3, HWlower);
+        EEPROM.get(20, HWupper);
+        Blynk.virtualWrite(V4, HWupper);
+        */
+        
+        EEPROM.get(30, Tanklower);
+        Blynk.virtualWrite(V11, Tanklower);
+        EEPROM.get(40, Tankupper);
+        Blynk.virtualWrite(V10, Tankupper);
+       
+        Blynk.virtualWrite(V9, 0); //HW LED OFF
+        
+        lcd.clear();
+        //lcd2.clear();
+        
+        shotHW = 3;
+        shotBoiler = 1;
+        voidState = 1999;
+        
+    }
+
+
+
+void loop()
+{
+  
+Blynk.run();
+
+
+
+      
+      
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////  
+
+if (chON == 1)
+    {
+        makeHeat();
+        //CHcheck = 1;
+        //Particle.publish("makeHeat", "chON 1", PRIVATE);
+    }   
+if (chON == 0)
+    {
+        heatVariable = 0;
+        //Particle.publish("heatVariable", "chON 0", PRIVATE);
+    }
+    
+    
+    
+if (hwON == 1)
+    {
+        makeHotWater();
+        //Particle.publish("makeHeat", "chON 1", PRIVATE);
+    }   
+if (hwON == 0)
+    {
+        hwVariable = 0;
+        //Particle.publish("heatVariable", "chON 0", PRIVATE);
+    }
+    
+////////////////////////////////////////////////////////////////////////////////////////////////////////////   
+    
+
+
+
+/////////////////////////////////////////////////////NEW LOGIC////////////////////////////////////////////////////  CH
+
+
+
+if (hwVariable == 0 && heatVariable == 0 && chConstant != 1 && hwConstant != 1)
+    {
+        if (shotBoiler == 0) // EVERY THING OFF: 000 == D1-D2-D3                     000
+            {
+                CODE000();
+            }
+        if (shotBoiler != 0) // Cool down                                            010
+            {
+                CODE010();
+            }
+    }
+
+if (hwVariable == 0 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
+    {
+        if (shot == 0) // hw water off, hall way calling for heat //                 011
+            {
+                CODE011();
+            }
+        if (shot == 1) // hw water off, hall way up to temp //                       000
+            {
+                if (shotBoiler != 0) // Cool down                                            010
+                    {
+                        CODE010();   
+                    }
+                if (shotBoiler == 0)
+                    {
+                        CODE000();  
+                    }
+            }
+    }
+    
+if (hwVariable == 1 && heatVariable == 0 && chConstant != 1 && hwConstant != 1)
+    {
+        if (shotHW == 1) //tank up to temp, hall way not calling for heat and anyway, heating is off
+            {
+                if (shotBoiler != 1) //tank up to temp, boiler temp safe, 
+                                     //shut everything down. 
+                                     //heating is off                                 000
+                    {
+                        CODE000();  
+                    }
+                if (shotBoiler == 1) //tank up to temp, boiler too hot, cool down.
+                                                                //heating is off      100  
+                    {
+                       CODE100();  
+                    }
+            }
+        if (shotHW != 1) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
+            {
+                if (shotBoiler != 1) //boiler temp safe, 
+                                     //run boiler and hw pump/valve                   101
+                    {
+                        CODE101();
+                    }
+                if (shotBoiler == 1) //boiler too hot, cool down                      100 
+                    {
+                        CODE100(); 
+                    }
+            }
+    }
+
+if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
+    {
+        if (shot == 0) // Hall Way needs more heat
+            {
+                    if (shotBoiler == 0) //boiler OK
+                        {
+                            CODE011(); // start heating from cold, leave tank out for now            011
+                        }
+                    if (shotBoiler != 0) // Hall Way needs more heat, either at 3 or 1
+                        {
+                            if (shotHW != 1) //tank calling for more heat, boiler tem OK as CH ON    111
+                                {
+                                    CODE111();
+                                }
+                            if (shotHW == 1) //tank up to temp, run heating only                     011
+                                {
+                                    CODE011();
+                                }
+                        }
+            }
+        if (shot == 1) //Hall Way up to temp
+            {
+                    if (shotBoiler != 1) //boiler temp in safe zone
+                        {
+                            if (shotHW != 1) //tank calling for more heat                           101
+                                {
+                                    CODE101();
+                                }
+                            if (shotHW == 1) //tank up to temp                                      000
+                                {
+                                    CODE000();
+                                }
+                        }
+                    if (shotBoiler == 1) //boiler in RED ZONE and heating off, cool down
+                        {
+                            CODE100(); //                                                           100
+                        }
+            }
+    }
+
+//////////////////////////////////////////HW CONSTANT///////////////HW CONSTANT/////////////////////////////////////////////
+if (hwConstant == 1)
+    {
+        if (shotHW == 1) //tank up to temp, hall way not calling for heat and anyway, heating is off
+            {
+                if (shotBoiler == 0) //tank up to temp, boiler temp safe, 
+                                     //shut everything down. 
+                                     //heating is off                                 000
+                    {
+                        CODE000();  
+                    }
+                if (shotBoiler == 1) //tank up to temp, boiler too hot, cool down.
+                                                                //heating is off      100  
+                    {
+                       CODE100();  
+                    }
+            }
+        if (shotHW != 1) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
+            {
+                if (shotBoiler != 1) //boiler temp safe, 
+                                     //run boiler and hw pump/valve                   101
+                    {
+                        CODE101();
+                    }
+                if (shotBoiler == 1) //boiler too hot, cool down                      100 
+                    {
+                        CODE100(); 
+                    }
+            }
+    }
+if (hwConstant == 0)
+    {
+        //do nothing
+    }
+
+//////////////////////////////////////////CH CONSTANT///////////////CH CONSTANT/////////////////////////////////////////////
+if (chConstant == 1 && shot == 0)
+    {
+        CODE011(); //Run CH
+    }
+else if (chConstant == 1 && shotBoiler == 1)
+    {
+        CODE010(); //Run cool down through CH
+    }
+else if (chConstant == 1 && shot == 1 && shotBoiler == 0)
+    {
+        CODE000(); //@sys$system:shutdown
+    }
+if (chConstant == 0)
+    {
+        //do nothing
+    }
+
+/////////////////////////////////////////////////////NEW LOGIC////////////////////////////////////////////////////  
+ 
+if (realTemp > pumpNoNeed)    //It's warm, turn the heating off                       
+  {
+    shot = 1;
+    //Particle.publish("realTemp", String(realTemp,2), PRIVATE);
+    //Particle.publish("pumpNoNeed", String(pumpNoNeed,2), PRIVATE);
+    //lcd.print(0, 0, "shot1");
+  } 
+    
+if (realTemp < pumpNoNeed)    //turn heating on
+  {
+    shot = 0;  
+    //Particle.publish("realTemp", String(realTemp,2), PRIVATE);
+    //Particle.publish("pumpNoNeed", String(pumpNoNeed,2), PRIVATE);
+  }
+
+//////////////////////////////////////////////////////////////////////////
+
+if (publish < millis())
+      {
+          if (realTemp != 0 && tankT != 0)
+              {
+                  Blynk.virtualWrite(V61, realTemp);///====plot graphs on Blynk
+                  Blynk.virtualWrite(V94, shotBoiler);
+                  Blynk.virtualWrite(V67, tankT);
+                  
+                  Particle.publish("Bert2", "Is alive", PRIVATE);
+              }
+              
+          publish = (millis() + 30000);
+      }  
+      
+
+if (publish2 < millis())
+      {
+            //
+            lcd.print(8, 1, shotHW);
+            lcd.print(9, 1, shot);
+            lcd.print(10, 1, shotBoiler);
+            //
+            publish2 = (millis() + 5000);
+      } 
+      
+
+} // END OF LOOP 
+
+
+
+
+
+//////////////////////////LET THE VOIDS BEGIN////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//CODES : D1|D2|D3
+
+void CODE000()
+ {
+     if (voidState != 1000)
+         {
+            digitalWrite(D1,LOW);               //PUMP OFF AND HW VALVE CLOSED  
+            Blynk.virtualWrite(V12, 0);        //HW LED OFF
+            Blynk.virtualWrite(V9, 0);        //boiler LED OFF
+            digitalWrite(D3,LOW);            //boiler OFF
+            digitalWrite(D2,LOW);           //PUMP OFF AND CH VALVE CLOSED
+            Blynk.virtualWrite(V5, 0);     //PUMP LED OFF  
+            lcd.print(8, 0, "000");
+            voidState = 1000;
+         }
+        
+ }
+ 
+void CODE100()
+ {
+     if (voidState != 1100)
+         {
+            digitalWrite(D1,HIGH);            //PUMP ON AND HW VALVE OPEN  
+            Blynk.virtualWrite(V12, 900);    //HW LED ON
+            Blynk.virtualWrite(V9, 0);         //boiler LED OFF
+            digitalWrite(D3,LOW);             //boiler OFF
+            digitalWrite(D2,LOW);            //PUMP OFF AND CH VALVE CLOSED
+            Blynk.virtualWrite(V5, 0);      //PUMP LED OFF 
+            lcd.print(8, 0, "100");
+            voidState = 1100;
+         }
+ }
+ 
+void CODE010()
+ {
+     if (voidState != 1010)
+         {
+            digitalWrite(D1,LOW);                 //PUMP OFF AND HW VALVE CLOSED  
+            Blynk.virtualWrite(V12, 0);          //HW LED OFF
+            Blynk.virtualWrite(V9, 0);          //boiler LED OFF
+            digitalWrite(D3,LOW);              //boiler OFF
+            digitalWrite(D2,HIGH);         //PUMP ON AND CH VALVE OPEN
+            Blynk.virtualWrite(V5, 900);  //PUMP LED ON 
+            lcd.print(8, 0, "010");
+            voidState = 1010;
+         }
+ }
+
+void CODE011()
+ {
+     if (voidState != 1011)
+         {
+            digitalWrite(D1,LOW);                   //PUMP OFF AND HW VALVE CLOSED  
+            Blynk.virtualWrite(V12, 0);            //HW LED OFF
+            Blynk.virtualWrite(V9, 900);     //boiler LED ON
+            digitalWrite(D3,HIGH);          //boiler ON
+            digitalWrite(D2,HIGH);         //PUMP ON AND CH VALVE OPEN
+            Blynk.virtualWrite(V5, 900);  //PUMP LED ON 
+            lcd.print(8, 0, "011");
+            voidState = 1011;
+         }
+ }
+ 
+void CODE101()
+ {
+     if (voidState != 1101)
+         {
+            digitalWrite(D1,HIGH);                //PUMP ON AND HW VALVE OPEN  
+            Blynk.virtualWrite(V12, 900);        //HW LED ON
+            Blynk.virtualWrite(V9, 900);        //boiler LED ON
+            digitalWrite(D3,HIGH);             //boiler ON
+            digitalWrite(D2,LOW);                //PUMP OFF AND CH VALVE CLOSED
+            Blynk.virtualWrite(V5, 0);          //PUMP LED OFF 
+            lcd.print(8, 0, "101");
+            voidState = 1101;
+         }
+ }
+ 
+void CODE110()
+ {
+     if (voidState != 1110)
+         {
+            digitalWrite(D1,HIGH);              //PUMP ON AND HW VALVE OPEN  
+            Blynk.virtualWrite(V12, 900);      //HW LED ON
+            Blynk.virtualWrite(V9, 0);           //boiler LED OFF
+            digitalWrite(D3,LOW);               //boiler OFF
+            digitalWrite(D2,HIGH);          //PUMP ON AND CH VALVE OPEN
+            Blynk.virtualWrite(V5, 900);   //PUMP LED ON 
+            lcd.print(8, 0, "110");
+            voidState = 1110;
+         }
+ }
+
+void CODE111()
+ {
+     if (voidState != 1111)
+         {
+            digitalWrite(D1,HIGH);                //PUMP ON AND HW VALVE OPEN  
+            Blynk.virtualWrite(V12, 900);        //HW LED ON
+            Blynk.virtualWrite(V9, 900);        //boiler LED ON
+            digitalWrite(D3,HIGH);             //boiler ON
+            digitalWrite(D2,HIGH);            //PUMP ON AND CH VALVE OPEN
+            Blynk.virtualWrite(V5, 900);     //PUMP LED ON 
+            lcd.print(8, 0, "111");
+            voidState = 1111;
+         }
+ }
+
+//HOT WATER TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////HW BOUNDARY TIMER//////////////////
+void makeHotWater()
+{
+        //if ((Time.hour() >= 6) && (Time.hour() <= 20))
+        if (((Time.hour() >= 6) && (Time.hour() <= 8)) or ((Time.hour() >= 15) && (Time.hour() <= 20)))
+        /*
+        hwcountdownStart = (Time.hour() - hwOnH)*60;
+            hwcountdownStop = (Time.hour() - hwOfH)*60;
+         
+         if (Time.hour() >= hwOnH && Time.hour() <= hwOfH) 
+             {
+             if (((Time.minute() + hwcountdownStart) >= hwOnM) && (Time.minute() + (hwcountdownStop) < hwOfM))
+             */
+                 {
+                  
+                    hwVariable = 1;
+                 }
+             //}
+             else
+                 {
+                    hwVariable = 0;
+                    
+                 }
+        }
+//HOT WATER TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////HW BOUNDARY TIMER//////////////////
+ 
+ 
+//TIMER SECTION — BOUNDARY TIMER/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void makeHeat()
+{
+    /*
+            w1countdownStart = (Time.hour() - w1OnH)*60;
+            w1countdownStop = (Time.hour() - w1OfH)*60;
+            
+            w2countdownStart = (Time.hour() - w2OnH)*60;
+            w2countdownStop = (Time.hour() - w2OfH)*60;
+            
+            w3countdownStart = (Time.hour() - w3OnH)*60;
+            w3countdownStop = (Time.hour() - w3OfH)*60;
+    */  
+        //TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////CH W1 BOUNDARY TIMER//////////////////////////
+        if (((Time.hour() >= 6) && (Time.hour() <= 8)) or ((Time.hour() >= 15) && (Time.hour() <= 20)))
+             
+            //if (((Time.minute() + w1countdownStart) >= w1OnM) && (Time.minute() + (w1countdownStop) < w1OfM))
+                {
+                    //CHcheck = 2;
+                    heatVariable = 1;
+                    lcd.print(0, 0, "CHon.");
+                    Blynk.virtualWrite(V8, 0);
+                    chConstant = 0;
+                }
+          /*  else
+                {
+                    if (shotBoiler == 0)
+                        {
+                            heatVariable = 0;
+                            if (chConstant == 0)
+                                {
+                                    lcd.print(0, 1, "W1OFF");
+                                }
+                            if (chConstant == 1)
+                                {
+                                    lcd.print(0, 1, "Const.");
+                                }
+                        }
+                } 
+            
+            // } 
+        //TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////CH W2 BOUNDARY TIMER//////////////////////////
+        else if ((Time.hour() >= 15) && (Time.hour() <= 20)) 
+             //{
+            //if (((Time.minute() + w2countdownStart) >= w2OnM) && (Time.minute() + (w2countdownStop) < w2OfM))
+                {
+                    
+                    heatVariable = 1;
+                    lcd.print(0, 1, "CHon.");
+                    Blynk.virtualWrite(V8, 0);
+                    chConstant = 0;
+                }*/
+            else
+                {
+                    if (shotBoiler == 0)
+                        {
+                            heatVariable = 0;
+                            
+                            if (chConstant == 0)
+                                {
+                                    lcd.print(0, 0, "CHOFF");
+                                }
+                            if (chConstant == 1)
+                                {
+                                    lcd.print(0, 0, "Const.");
+                                }
+                        }
+                } 
+            
+             //}
+      /*  //TIMER SECTION — BOUNDARY TIMER///////////////////////////////////////////////////////////////////////////////////////////CH W3 BOUNDARY TIMER//////////////////////////
+        if (Time.hour() >= w3OnH && Time.hour() <= w3OfH) 
+             {
+            if (((Time.minute() + w3countdownStart) >= w3OnM) && (Time.minute() + (w3countdownStop) < w3OfM))
+                {
+                    heatVariable = 1;
+                    lcd.print(0, 1, "W3on.");
+                    Blynk.virtualWrite(V8, 0);
+                    chConstant = 0;
+                    //Particle.publish("CH", "Const. OFF", PRIVATE);
+                }
+            else
+                {
+                    if (shotBoiler == 0)
+                        {
+                            heatVariable = 0;
+                            if (chConstant == 0)
+                                {
+                                    lcd.print(0, 1, "W3OFF");
+                                }
+                            if (chConstant == 1)
+                                {
+                                    lcd.print(0, 1, "Const.");
+                                }
+                        }
+                }
+            
+             }
+             */
+        
+        
+}
+
+/*
+BLYNK_WRITE(V10)
+{
+    terminal.println("Hot Water Tank ºC");
+    terminal.println(String(shotHW));
+    terminal.println("Boiler Flow ºC");
+    terminal.println(String(shotBoiler));
+    terminal.println("Hall Way ºC");
+    terminal.println(String(shot));
+}
+*/
+
+BLYNK_WRITE(V32) {                  
+  pumpNoNeed = param.asFloat();
+
+  Blynk.virtualWrite(V32, pumpNoNeed);
+  EEPROM.put(600, pumpNoNeed);         ////////////////////// TRY-OUT 20-10-2019 ////////////////////////
+  delay(100);
+}
+
+
+
+
+// heating on
+BLYNK_WRITE(V2) {
+    if (param.asInt() == 1)
+        {
+            chON = 1;
+            //chLatch = 30;
+            Particle.publish("CH", "ON", PRIVATE);
+            //chLatch = 10;
+        }
+    if (param.asInt() == 0)
+        {  
+            chON = 0;
+            Particle.publish("CH", "OFF", PRIVATE);
+            //boilerDelay2 = (millis() + 20100);
+            //chLatch = 15;
+        }
+}
+
+
+
+// hot water
+BLYNK_WRITE(V1) {
+    if (param.asInt() == 1)
+        {
+            hwON = 1;
+            //hwLatch = 30;
+            Particle.publish("HW", "ON", PRIVATE);
+            //hwLatch = 10;
+        }
+    if (param.asInt() == 0)
+        {  
+            hwON = 0;
+            Particle.publish("HW", "OFF", PRIVATE);
+            //boilerDelay = (millis() + 20100);
+            //hwLatch = 15;
+        }
+}
+
+/*
+// boiler upper threshold
+BLYNK_WRITE(V4) {
+    HWupper = (param.asFloat());
+    EEPROM.put(20, HWupper);
+}
+
+// boiler lower threshold
+BLYNK_WRITE(V3) {
+    HWlower = (param.asFloat());
+    EEPROM.put(10, HWlower);
+}
+*/
+
+// boiler upper threshold
+BLYNK_WRITE(V10) {
+    Tankupper = (param.asFloat());
+    EEPROM.put(40, Tankupper);
+}
+
+// boiler lower threshold
+BLYNK_WRITE(V11) {
+    Tanklower = (param.asFloat());
+    EEPROM.put(30, Tanklower);
+}
+
+
+BLYNK_WRITE(V6) 
+{
+    if (param.asInt() == 1 && chConstant != 1) 
+        {
+            //Particle.publish("CH", "-. ON", PRIVATE);
+            //lcd.print(0, 1, "-. ON");
+            hwConstant = 1;
+            //CHcheck = 0;
+            
+        }
+    if (param.asInt() == 0)
+        {
+            hwConstant = 0;
+            //Particle.publish("CH", "-.OFF", PRIVATE);
+            //lcd.print(0, 1, "-.OFF");
+        }
+}
+
+BLYNK_WRITE(V8) 
+{
+    if (param.asInt() == 1 && hwConstant != 1) 
+        {
+            Particle.publish("CH", "-. ON", PRIVATE);
+            lcd.print(0, 0, "-. ON");
+            chConstant = 1;
+            
+        }
+    if (param.asInt() == 0)
+        {
+            chConstant = 0;
+            Particle.publish("CH", "-.OFF", PRIVATE);
+            lcd.print(0, 0, "-.OFF");
+        }
+}
+
+
+/*
+void getTemp(const char *event, const char *data) // gets outside temp from darksky and puts it on gauge and chart
+{ 
+  responseValue = atof(data);
+  //Blynk.virtualWrite(V67, responseValue);
+  //delay(100);
+  //Blynk.virtualWrite(V62, responseValue); ///old dial display
+  lcd.print(12, 0, "OUºC");
+  lcd.print(12, 1, responseValue);
+
+}
+*/
+
+void myHandler4(const char *event, const char *data) // // BOILER TEMP
+{
+if (data)
+    {
+        
+        //lcd.print(0, 0, data);
+        //lcd.print(5, 0, "ºC");
+        shotBoiler = atoi(data);
+        //boilerT = atof(data);
+        
+    }
+    
+    if (shotBoiler == 1)
+        {
+           Blynk.setProperty(V9, "color", "#FF0000");
+        }
+    if (shotBoiler == 3)
+        {
+           Blynk.setProperty(V9, "color", "#FFBF00");
+        }
+    if (shotBoiler == 0)
+        {
+            Blynk.setProperty(V9, "color", "#0000FF");
+        }
+    /*
+if ((boilerT) > (HWupper))
+    {
+        shotBoiler = 1; //Upper Limit Reached
+    }
+if ((boilerT) < (HWlower))
+    {
+        shotBoiler = 0; //Safe 
+    }
+    */
+}
+
+
+
+void myHandler50(const char *event2, const char *data2) // // tank temp
+{
+if (data2)
+    {
+        tankT = atof(data2);
+    
+        if ((tankT) > (Tankupper)) //above 59ºC HW
+            {
+                shotHW = 1; //Upper Limit Reached
+            }
+        
+        if (((tankT) <= (Tankupper)) && ((tankT) >= (Tanklower))) //between 59ºC and 53ºC 
+            {
+                shotHW = 3; //Upper Limit Reached
+            }
+        
+        if ((tankT) < (Tanklower)) //below 53ºC HW
+            {
+                shotHW = 0; //Safe 
+            }
+        
+    }
+
+}
+
+
+
+/*
+void myHandler3(const char *event, const char *data) // 
+{
+if (data){
+    Blynk.virtualWrite(V80, data);
+}
+}*/
+
+
+void tler20(const char *event3, const char *zdata) // hallway temperature ºC written to Blynk LCD
+{
+if (zdata){
+    //Blynk.virtualWrite(V17, data); ///old dial display
+    //Blynk.virtualWrite(V61, data);///==========================================================================old white line on graph
+    realTemp = atof(zdata);
+    
+    lcd.print(12, 0, "INºC");
+    lcd.print(12, 1, realTemp);
+    
+    
+    
+    
+    //Particle.publish("BOILER Status", String(shotBoiler), PRIVATE); // placed here to reduce broadcast frequency
+    //Particle.publish("shot status", String(shot), PRIVATE); 
+    //Particle.publish("shotHW", String(shotHW), PRIVATE);
+  
+}
+
+} 
+
+
