@@ -25,13 +25,14 @@
 
 WidgetLCD lcd(V0);
 
+
 int voidState;
 
 double boilerUpper;
 double boilerLower;
 
 
-char auth[] = "CODE HERE";
+char auth[] = "code here";
 
 int publish;
 int publish2;
@@ -66,6 +67,11 @@ MCP9803 sensor;
 double temperature;
 double temph201;
 
+int directiona;
+int directionb;
+
+double xaxis;
+
 int timeAdd;
 
 double tempAv;
@@ -74,20 +80,20 @@ double tempFar;
 double tempuncorrected;
 
 int dly1;
-int dly3;
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
 void setup()
     {
-        
+        Particle.subscribe("temperature!", tler20, MY_DEVICES); 
+        Particle.subscribe("TankT", myHandler50, MY_DEVICES);
         //boilerUpper = 62.00;
         //boilerLower = 54.00;
         //Particle.subscribe("hook-response/darksky", getTemp, MY_DEVICES);
         
         Blynk.begin(auth);
-        Blynk.syncAll();
+        
         
         Blynk.virtualWrite(V5, 0);
         Blynk.virtualWrite(V12, 0);
@@ -98,9 +104,6 @@ void setup()
         pinMode(D3,OUTPUT); //orange leads boiler (IN4) -- fired independently of pump but only after pump running and valve open
         
         //pulseOn = 0;
-        Particle.subscribe("temperature!", tler20, MY_DEVICES); 
-        Particle.subscribe("TankT", myHandler50, MY_DEVICES);
-        
         //Particle.subscribe("humidity!", myHandler3, MY_DEVICES); 
         //Particle.subscribe("Boiler", myHandler4, MY_DEVICES); //BOILER TEMP
         
@@ -109,7 +112,7 @@ void setup()
         
         lcd.clear();
         lcd.print(0, 0, "Hello! ");
-        lcd.print(0, 1, "Midge 1.0");
+        lcd.print(0, 1, "Midge 2.0");
         delay(3000);
         lcd.clear();
         
@@ -137,9 +140,10 @@ void setup()
         
         sensor.setAddress(1,1,1);
         //Particle.variable("Boiler", tempAv);
-        
+      
         //Thermistor.begin();
         
+        Blynk.syncAll();
     }
 
 
@@ -149,10 +153,31 @@ void loop()
   
 Blynk.run();
 
-
-
-      
-      
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+ if (dly1 < millis())
+        {
+            temperature = sensor.temperature();
+            tempuncorrected = (temperature - 32) * 0.555556;
+            tempFar = temperature;
+            temph201 = ((temperature - 32) * 0.555556); //* 0.895;
+            
+            if (temph201 > boilerUpper)
+                {
+                    shotBoiler = 1; //Upper Limit Reached
+                }
+            if (temph201 >= boilerLower && temph201 <= boilerUpper)
+                {
+                    shotBoiler = 3;
+                    //timeAdd = 10000;
+                }
+            if (temph201 < boilerLower)
+                {
+                    shotBoiler = 0; //Safe 
+                    //timeAdd = 20000;
+                }
+                
+            dly1 = millis() + 1100;
+        }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////  
 
@@ -218,16 +243,23 @@ if (hwVariable == 1 && heatVariable == 0 && chConstant != 1 && hwConstant != 1)
     {
         if (shotHW == 1) //tank up to temp, hall way not calling for heat and anyway, heating is off
             {
-                if (shotBoiler != 1) //tank up to temp, boiler temp safe, 
+                //if (shotBoiler != 1) //tank up to temp, boiler temp safe, 
                                      //shut everything down. 
                                      //heating is off                                 000
+                if (shotBoiler == 0)
                     {
-                        CODE000();  
+                        CODE000();  //                                                000
                     }
+
                 if (shotBoiler == 1) //tank up to temp, boiler too hot, cool down.
                                                                 //heating is off      100  
                     {
                        CODE100();  
+                    }
+                if (shotBoiler == 3) //tank up to temp, boiler too hot, cool down.
+                                                                //heating is off      010  
+                    {
+                       CODE010();  
                     }
             }
         if (shotHW != 1) // tank not up to temp. heating is off          !!!!/////THIS CASE IS SENSITIVE, MAY NEED TO ADD CH TO COOL DOWN///!!!!
@@ -248,7 +280,10 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
     {
         if (shot == 0) // Hall Way needs more heat
             {
-                CODE011();
+                    if (shotHW == 1) //tank calling for more heat, boiler over temp CH ON           011
+                            {
+                                CODE011();
+                            }
                     if (shotHW != 1) //tank calling for more heat, boiler over temp CH ON           111
                             {
                                 CODE111();
@@ -262,9 +297,16 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
                                 {
                                     CODE101();
                                 }
-                            if (shotHW == 1) //tank up to temp                                      000
+                            if (shotHW == 1) //tank up to temp                                      000 or 100
                                 {
-                                    CODE000();
+                                    if (shotBoiler == 0)
+                                        {
+                                            CODE000();
+                                        }
+                                    if (shotBoiler == 3) // ***COOL DOWN*** 
+                                        {
+                                            CODE010();
+                                        }
                                 }
                         }
                     if (shotBoiler == 1) //boiler too hot
@@ -273,7 +315,7 @@ if (hwVariable == 1 && heatVariable == 1 && chConstant != 1 && hwConstant != 1)
                                 {
                                     CODE100();
                                 }
-                            if (shotHW == 1) //tank up to temp, run cool down through CH            010
+                            if (shotHW == 1) //tank up to temp, run cool down through CH            110
                                 {
                                     CODE110();
                                 }
@@ -313,10 +355,6 @@ if (hwConstant == 1)
                     {
                         CODE100(); 
                     }
-                if (shotBoiler == 3) //boiler still too hot, cool down                010 
-                    {
-                        CODE010(); 
-                    }
             }
     }
 if (hwConstant == 0)
@@ -325,11 +363,12 @@ if (hwConstant == 0)
     }
 
 //////////////////////////////////////////CH CONSTANT///////////////CH CONSTANT/////////////////////////////////////////////
+
 if (chConstant == 1 && shot == 0)
     {
         CODE011(); //Run CH
     }
-else if (chConstant == 1 && shotBoiler == 1)
+else if (chConstant == 1 && shot == 1 && shotBoiler !=0)
     {
         CODE010(); //Run cool down through CH
     }
@@ -354,65 +393,6 @@ if (realTemp < pumpNoNeed)    //turn heating on
     shot = 0;  
   }
 
-//////////////////////////////////////////////////////////////////////////
-
-
-
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////
- if (dly1 < millis())
-        {
-            temperature = sensor.temperature();
-            tempuncorrected = (temperature - 32) * 0.555556;
-            tempFar = temperature;
-            temph201 = ((temperature - 32) * 0.555556); //* 0.895;
-            
-            if (temph201 > boilerUpper)
-                {
-                    shotBoiler = 1; //Upper Limit Reached
-                }
-            if (temph201 >= boilerLower && temph201 <= boilerUpper)
-                {
-                    shotBoiler = 3;
-                    timeAdd = 10000;
-                }
-            if (temph201 < boilerLower)
-                {
-                    shotBoiler = 0; //Safe 
-                    timeAdd = 20000;
-                }
-                
-            dly1 = millis() + 2000 + timeAdd;
-        }
-        
-
-/*
-    
-    if (dly3 < millis())
-        {
-            Particle.publish("--BoilerC", String(temph201,2),PRIVATE);
-            Particle.publish("mungoTankºC", String(Thermistor.getTempC(),2),PRIVATE);
-            
-            tankT = (Thermistor.getTempC());
-            dly3 = millis() + 15000;
-        
-      
-        if ((tankT) > (Tankupper)) //above 59ºC HW
-            {
-                shotHW = 1; //Upper Limit Reached
-            }
-        
-        if (((tankT) <= (Tankupper)) && ((tankT) >= (Tanklower))) //between 59ºC and 53ºC 
-            {
-                shotHW = 3; //Upper Limit Reached
-            }
-        
-        if ((tankT) < (Tanklower)) //below 53ºC HW
-            {
-                shotHW = 0; //Safe 
-            }
-        }
-        */
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 if (publish < millis())
@@ -420,13 +400,13 @@ if (publish < millis())
           if (realTemp != 0 && tankT != 0)
               {
                   Blynk.virtualWrite(V61, realTemp);///====plot graphs on Blynk
-                  Blynk.virtualWrite(V94, shotBoiler);
+                  Blynk.virtualWrite(V94, temph201);
                   Blynk.virtualWrite(V67, tankT);
                   
-                  Particle.publish("Midge", "Is alive", PRIVATE);
+                  //Particle.publish("Midge", "Is alive", PRIVATE);
               }
               
-          publish = (millis() + 30000);
+          publish = (millis() + 15000);
       } 
 
 
@@ -448,6 +428,7 @@ if (publish2 < millis())
         lcd.print(8, 1, shotHW);
         lcd.print(9, 1, shot);
         lcd.print(10, 1, shotBoiler);
+        lcd.print(7, 0, String(voidState));
         //
         Particle.publish("--BoilerC", String(temph201,2),PRIVATE);
         
@@ -466,7 +447,7 @@ if (publish2 < millis())
 
 //////////////////////////LET THE VOIDS BEGIN////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//CODES : D8|D7|D3
+//CODES : D8|D4|D3
 
 void CODE000()
  {
@@ -478,7 +459,7 @@ void CODE000()
             digitalWrite(D3,LOW);            //boiler OFF
             digitalWrite(D8,LOW);           //PUMP OFF AND CH VALVE CLOSED
             Blynk.virtualWrite(V5, 0);     //PUMP LED OFF  
-            lcd.print(8, 0, "000");
+            //lcd.print(8, 0, "000");
             voidState = 1000;
          }
         
@@ -494,7 +475,7 @@ void CODE100()
             digitalWrite(D3,LOW);             //boiler OFF
             digitalWrite(D8,LOW);            //PUMP OFF AND CH VALVE CLOSED
             Blynk.virtualWrite(V5, 0);      //PUMP LED OFF 
-            lcd.print(8, 0, "100");
+            //lcd.print(8, 0, "100");
             voidState = 1100;
          }
  }
@@ -509,7 +490,7 @@ void CODE010()
             digitalWrite(D3,LOW);              //boiler OFF
             digitalWrite(D8,HIGH);         //PUMP ON AND CH VALVE OPEN
             Blynk.virtualWrite(V5, 900);  //PUMP LED ON 
-            lcd.print(8, 0, "010");
+            //lcd.print(8, 0, "010");
             voidState = 1010;
          }
  }
@@ -524,7 +505,7 @@ void CODE011()
             digitalWrite(D3,HIGH);          //boiler ON
             digitalWrite(D8,HIGH);         //PUMP ON AND CH VALVE OPEN
             Blynk.virtualWrite(V5, 900);  //PUMP LED ON 
-            lcd.print(8, 0, "011");
+            //lcd.print(8, 0, "011");
             voidState = 1011;
          }
  }
@@ -539,7 +520,7 @@ void CODE101()
             digitalWrite(D3,HIGH);             //boiler ON
             digitalWrite(D8,LOW);                //PUMP OFF AND CH VALVE CLOSED
             Blynk.virtualWrite(V5, 0);          //PUMP LED OFF 
-            lcd.print(8, 0, "101");
+            //lcd.print(8, 0, "101");
             voidState = 1101;
          }
  }
@@ -554,7 +535,7 @@ void CODE110()
             digitalWrite(D3,LOW);               //boiler OFF
             digitalWrite(D8,HIGH);          //PUMP ON AND CH VALVE OPEN
             Blynk.virtualWrite(V5, 900);   //PUMP LED ON 
-            lcd.print(8, 0, "110");
+            //lcd.print(8, 0, "110");
             voidState = 1110;
          }
  }
@@ -569,7 +550,7 @@ void CODE111()
             digitalWrite(D3,HIGH);             //boiler ON
             digitalWrite(D8,HIGH);            //PUMP ON AND CH VALVE OPEN
             Blynk.virtualWrite(V5, 900);     //PUMP LED ON 
-            lcd.print(8, 0, "111");
+            //lcd.print(8, 0, "111");
             voidState = 1111;
          }
  }
